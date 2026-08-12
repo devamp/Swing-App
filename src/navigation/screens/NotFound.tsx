@@ -1,20 +1,12 @@
 import { Text, Button } from '@react-navigation/elements';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
+import Theme from '../../theme';
 
 export function NotFound() {
   return (
-    <View style={styles.container}>
+    <View style={Theme.styles.centeredContainer}>
       <Text>404</Text>
-      <Button screen="HomeTabs">Go to Home</Button>
+      <Button screen="Landing">Go to Home</Button>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-});
