@@ -8,6 +8,7 @@ const COLORS = {
   SURFACE: 'white',
   TEXT: 'black',
   SUB_TEXT_COLOR: '#4A4A4A',
+  ALERT: '#F59E0B',
 } as const;
 
 const paperTheme = {
@@ -178,6 +179,27 @@ const styles = StyleSheet.create({
     borderRadius: 110,
     backgroundColor: COLORS.SECONDARY,
     opacity: 0.28,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.SURFACE,
+    marginBottom: 12,
+    shadowColor: COLORS.TEXT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 28,
   },
 });
 

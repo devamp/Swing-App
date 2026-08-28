@@ -6,12 +6,14 @@ import { useNavigation } from '@react-navigation/native';
 
 export function Landing() {
   const navigation = useNavigation();
+  const swingLogo = require('../../../assets/swing-logo.png');
+
   return (
     <View style={Theme.styles.paddedAppContainer}>
       <View style={Theme.styles.backgroundBlobTop} />
       <View style={Theme.styles.backgroundBlobBottom} />
       <View style={[Theme.styles.headerContainer, styles.headerContainer]}>
-        <Image source={require('../../../assets/swing-logo.png')} style={styles.logo} />
+        <Image source={swingLogo} style={styles.logo} />
         <Text style={[Theme.styles.centeredSubtext, styles.appSubText]}>
           Set your skill level, see nearby matches, and start playing!
         </Text>
@@ -30,7 +32,7 @@ export function Landing() {
           Find Players Near Me
         </Button>
         <Button
-          onPress={() => console.log('')}
+          onPress={() => navigation.navigate('Home')}
           icon={({ size, color }) => (
             <MaterialCommunityIcons name="login" size={22} color={color} />
           )}

@@ -7,7 +7,9 @@ import * as React from 'react';
 import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
 import { PaperProvider } from 'react-native-paper';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Theme from './theme';
+import SwingAlert from './components/SwingAlert';
 
 Asset.loadAsync([
   ...NavigationAssets,
@@ -18,6 +20,7 @@ Asset.loadAsync([
 SplashScreen.preventAutoHideAsync();
 
 const prefix = createURL('/');
+const queryClient = new QueryClient();
 
 export function App() {
   const colorScheme = useColorScheme();
@@ -25,17 +28,20 @@ export function App() {
   const theme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
 
   return (
-    <PaperProvider theme={Theme.paperTheme}>
-      <Navigation
-        theme={theme}
-        linking={{
-          enabled: 'auto',
-          prefixes: [prefix],
-        }}
-        onReady={() => {
-          SplashScreen.hideAsync();
-        }}
-      />
-    </PaperProvider>
+    <QueryClientProvider client={queryClient}>
+      <PaperProvider theme={Theme.paperTheme}>
+        <Navigation
+          theme={theme}
+          linking={{
+            enabled: 'auto',
+            prefixes: [prefix],
+          }}
+          onReady={() => {
+            SplashScreen.hideAsync();
+          }}
+        />
+        <SwingAlert />
+      </PaperProvider>
+    </QueryClientProvider>
   );
 }

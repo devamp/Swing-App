@@ -8,10 +8,12 @@ import Theme from '../../../theme';
 import type { SportPreference } from './OnboardingFlowTypes';
 
 type SportOption = {
-  name: 'Tennis' | 'Pickleball';
+  name: Exclude<SportPreference, 'Both'>;
   copy: string;
   image: ReturnType<typeof require>;
 };
+
+const BOTH_SPORTS_IMAGE = require('../../../../assets/both-sport.png');
 
 const SPORTS: SportOption[] = [
   {
@@ -45,7 +47,7 @@ export function OnboardingChooseSport() {
   };
 
   const selectBoth = () => {
-    setSelectedSports(selectedSports.length === 2 ? [] : ['Tennis', 'Pickleball']);
+    setSelectedSports((current) => (current.length === 2 ? [] : ['Tennis', 'Pickleball']));
   };
 
   const handleContinue = () => {
@@ -88,6 +90,7 @@ export function OnboardingChooseSport() {
                   accessibilityLabel={`${sport.name}${isSelected ? ', selected' : ''}. ${
                     sport.copy
                   }`}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   {sport.name}
                 </Button>
@@ -127,23 +130,15 @@ export function OnboardingChooseSport() {
               accessibilityLabel={`Both${
                 selectedSport === 'Both' ? ', selected' : ''
               }. See tennis and pickleball players in one search.`}
+              accessibilityState={{ selected: selectedSport === 'Both' }}
             >
               Both
             </Button>
             <View pointerEvents="none" style={[styles.sportCardContent, styles.bothCardContent]}>
               <View
-                style={[styles.bothIconRow, selectedSport === 'Both' && styles.selectedIconFrame]}
+                style={[styles.iconFrame, selectedSport === 'Both' && styles.selectedIconFrame]}
               >
-                <Image
-                  source={SPORTS[0].image}
-                  style={styles.smallSportIcon}
-                  resizeMode="contain"
-                />
-                <Image
-                  source={SPORTS[1].image}
-                  style={styles.smallSportIcon}
-                  resizeMode="contain"
-                />
+                <Image source={BOTH_SPORTS_IMAGE} style={styles.sportIcon} resizeMode="contain" />
               </View>
               <View style={styles.cardText}>
                 <Text
@@ -244,24 +239,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedIconFrame: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.TEXT,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   sportIcon: {
     width: 58,
     height: 58,
-  },
-  smallSportIcon: {
-    width: 42,
-    height: 42,
-  },
-  bothIconRow: {
-    width: 92,
-    height: 76,
-    borderRadius: 16,
-    backgroundColor: Theme.BACKGROUND,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   bothCard: {
     borderRadius: 18,

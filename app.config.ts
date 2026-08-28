@@ -1,11 +1,5 @@
 import type { ExpoConfig } from 'expo/config';
 
-const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
-
-if (!googleMapsApiKey) {
-  throw new Error('GOOGLE_MAPS_API_KEY is not defined');
-}
-
 const config: ExpoConfig = {
   name: 'swing-app',
   slug: 'swing-app',
@@ -13,9 +7,7 @@ const config: ExpoConfig = {
   orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   scheme: 'swingapp',
-
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.swingapp',
@@ -47,13 +39,6 @@ const config: ExpoConfig = {
         image: './assets/splash-icon.png',
       },
     ],
-    // [
-    //   'react-native-maps',
-    //   {
-    //     iosGoogleMapsApiKey: googleMapsApiKey,
-    //     androidGoogleMapsApiKey: googleMapsApiKey,
-    //   },
-    // ],
   ],
 };
 

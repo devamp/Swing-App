@@ -1,10 +1,6 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStaticNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Image } from 'react-native';
-import newspaper from '../assets/newspaper.png';
 import {
-  Home,
   Landing,
   OnboardingChooseLocation,
   OnboardingChooseSport,
@@ -12,39 +8,55 @@ import {
   OnboardingMatchNotFound,
   OnboardingPlayerDetails,
   OnboardingSkillAvailability,
+  Home,
+  Profile,
 } from './screens';
-import { Onboarding } from './screens/onboarding/Onboarding';
+import { Onboarding } from './screens/Onboarding/Onboarding';
+import { SignUp } from './screens/SignUp';
+import { Login } from './screens/Login';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NotFound } from './screens/NotFound';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const HomeTabs = createBottomTabNavigator({
+  screenOptions: {
+    headerShown: false,
+  },
   screens: {
-    Landing: {
-      screen: Landing,
-      options: {
-        title: 'Feed',
-        tabBarIcon: ({ color, size }) => (
-          <Image
-            source={newspaper}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
-          />
-        ),
-      },
-    },
     Home: {
       screen: Home,
       options: {
-        title: 'Feed',
-        tabBarIcon: ({ color, size }) => (
-          <Image
-            source={newspaper}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
+        tabBarIcon: ({ focused, color, size }) => (
+          <MaterialCommunityIcons
+            name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
+            size={size}
+            color={color}
+          />
+        ),
+        tabBarLabel: 'Dashboard',
+      },
+    },
+    FindMatches: {
+      screen: Profile,
+      options: {
+        tabBarIcon: ({ focused, color, size }) => (
+          <MaterialCommunityIcons
+            name={focused ? 'map-search' : 'map-search-outline'}
+            size={size}
+            color={color}
+          />
+        ),
+        tabBarLabel: 'Play Map',
+      },
+    },
+    Profile: {
+      screen: Profile,
+      options: {
+        tabBarIcon: ({ focused, color, size }) => (
+          <MaterialCommunityIcons
+            name={focused ? 'tennis-ball' : 'tennis-ball-outline'}
+            size={size}
+            color={color}
           />
         ),
       },
@@ -98,6 +110,24 @@ const RootStack = createNativeStackNavigator({
     },
     OnboardingPlayerDetails: {
       screen: OnboardingPlayerDetails,
+      options: {
+        headerShown: false,
+      },
+    },
+    SignUp: {
+      screen: SignUp,
+      options: {
+        headerShown: false,
+      },
+    },
+    Login: {
+      screen: Login,
+      options: {
+        headerShown: false,
+      },
+    },
+    Home: {
+      screen: HomeTabs,
       options: {
         headerShown: false,
       },

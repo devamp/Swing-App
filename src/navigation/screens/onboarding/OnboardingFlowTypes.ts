@@ -36,10 +36,14 @@ export type OnboardingMatchPreferencesParams = OnboardingLocationParams & {
 };
 
 export type MatchDetails = {
+  courtType?: 'Indoor' | 'Outdoor';
   distance: string;
+  gameType?: PlayStyle;
   latitude: number;
   longitude: number;
   numPlayers: number;
+  playDate?: string;
+  playerStatus?: 'Confirmed' | 'Pending';
   skillLevel: SkillLevel;
   locationName?: string;
   playTime?: string;

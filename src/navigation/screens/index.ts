@@ -1,8 +1,10 @@
-export { Home } from './Home';
 export { Landing } from './Landing';
-export { OnboardingChooseLocation } from './onboarding/OnboardingChooseLocation';
-export { OnboardingChooseSport } from './onboarding/OnboardingChooseSport';
-export { OnboardingSkillAvailability } from './onboarding/OnboardingSkillAvailability';
-export { OnboardingMatchedPlayers } from './onboarding/OnboardingFoundMatches';
-export { OnboardingMatchNotFound } from './onboarding/OnboardingMatchNotFound';
-export { OnboardingPlayerDetails } from './onboarding/OnboardingPlayerDetails';
+export { OnboardingChooseLocation } from './Onboarding/OnboardingChooseLocation';
+export { OnboardingChooseSport } from './Onboarding/OnboardingChooseSport';
+export { OnboardingSkillAvailability } from './Onboarding/OnboardingSkillAvailability';
+export { OnboardingMatchedPlayers } from './Onboarding/OnboardingFoundMatches';
+export { OnboardingMatchNotFound } from './Onboarding/OnboardingMatchNotFound';
+export { OnboardingPlayerDetails } from './Onboarding/OnboardingPlayerDetails';
+export { Home } from './BottomNavBar/Home';
+export { Profile } from './BottomNavBar/Profile';
+export { FindMatches } from './BottomNavBar/FindMatches';
