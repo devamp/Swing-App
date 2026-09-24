@@ -21,7 +21,7 @@ const config: ExpoConfig = {
     package: 'com.swingapp',
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/swing-logo.png',
       backgroundColor: '#ffffff',
     },
   },
@@ -32,11 +32,12 @@ const config: ExpoConfig = {
 
   plugins: [
     'expo-asset',
+    '@react-native-community/datetimepicker',
     [
       'expo-splash-screen',
       {
         backgroundColor: '#ffffff',
-        image: './assets/splash-icon.png',
+        image: './assets/swing-logo.png',
       },
     ],
   ],

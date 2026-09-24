@@ -2,7 +2,7 @@ import type { StaticScreenProps } from '@react-navigation/core';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
 import Theme from '../../../theme';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import PlayerSearchLoader from '../../../components/PlayerSearchLoader';
@@ -12,103 +12,25 @@ import type {
 } from './OnboardingFlowTypes';
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { getPlayerInitials } from '../../../utils';
+import { useQuery } from '@tanstack/react-query';
+import { matchService } from '../../../services';
+import type { DBMatch } from '../../../services/matchService/types';
 
 export type OnboardingMatchedPlayersParams = OnboardingMatchPreferencesParams;
 
 type OnboardingMatchedPlayersProps = StaticScreenProps<OnboardingMatchedPlayersParams>;
 
-type MatchedPlayer = OnboardingMatchedPlayerDetails;
-
-const MOCK_MATCHES: MatchedPlayer[] = [
-  {
-    id: '1',
-    name: 'Alex Chen',
-    sport: 'Tennis',
-    matchDetails: {
-      numPlayers: 2,
-      distance: '2.2 mi away',
-      latitude: 45.40348,
-      longitude: -122.7656,
-      locationName: 'Portland Tennis Center',
-      playDate: 'Today',
-      playTime: '12:30 PM',
-      skillLevel: 'Casual',
-      gameType: 'Singles',
-      courtType: 'Indoor',
-      playerStatus: 'Confirmed',
-    },
-  },
-  {
-    id: '2',
-    name: 'Maya Patel',
-    sport: 'Pickleball',
-    matchDetails: {
-      numPlayers: 1,
-      distance: '2.6 mi away',
-      latitude: 45.3716,
-      longitude: -122.71205,
-      locationName: 'Chase State Park',
-      playDate: 'Tomorrow',
-      playTime: '2:30 PM',
-      skillLevel: 'Advanced',
-      gameType: 'Doubles',
-      courtType: 'Outdoor',
-      playerStatus: 'Confirmed',
-    },
-  },
-  {
-    id: '3',
-    name: 'Jordan Lee',
-    sport: 'Tennis',
-    matchDetails: {
-      numPlayers: 4,
-      distance: '3.0 mi away',
-      latitude: 45.34117,
-      longitude: -122.80885,
-      locationName: 'Irving Public Park',
-      playDate: 'Sat, Aug 15',
-      playTime: '4:00 PM',
-      skillLevel: 'Beginner',
-      gameType: 'Open Play',
-      courtType: 'Outdoor',
-      playerStatus: 'Confirmed',
-    },
-  },
-  {
-    id: '4',
-    name: 'Devam Patel',
-    sport: 'Tennis',
-    matchDetails: {
-      numPlayers: 3,
-      distance: '3.8 mi away',
-      latitude: 45.33537,
-      longitude: -122.70793,
-      locationName: 'Tualatin Hills Tennis Center',
-      playDate: 'Sun, Aug 16',
-      playTime: '9:00 AM',
-      skillLevel: 'Intermediate',
-      gameType: 'Doubles',
-      courtType: 'Indoor',
-      playerStatus: 'Confirmed',
-    },
-  },
-];
-
 const MINIMUM_MAP_DELTA = 0.05;
 const MAP_PADDING_MULTIPLIER = 1.3;
 
 function getInitialMapRegion(
-  players: MatchedPlayer[],
+  matches: DBMatch[],
   fallbackCenter: Pick<Region, 'latitude' | 'longitude'>,
 ): Region {
-  const playerLocations = players.flatMap((player) =>
-    typeof player.matchDetails.latitude === 'number' &&
-    Number.isFinite(player.matchDetails.latitude) &&
-    typeof player.matchDetails.longitude === 'number' &&
-    Number.isFinite(player.matchDetails.longitude)
-      ? [{ latitude: player.matchDetails.latitude, longitude: player.matchDetails.longitude }]
-      : [],
-  );
+  const playerLocations = matches.flatMap((match) => {
+    const coordinate = getMatchCoordinate(match);
+    return coordinate ? [coordinate] : [];
+  });
 
   if (!playerLocations.length) {
     return {
@@ -142,32 +64,102 @@ function getInitialMapRegion(
   };
 }
 
+function getMatchCoordinate(match: DBMatch): Pick<Region, 'latitude' | 'longitude'> | null {
+  const latitude =
+    match.matchCourtLocation.courtLocation?.latitude ?? match.matchCourtLocation.latitude;
+  const longitude =
+    match.matchCourtLocation.courtLocation?.longitude ?? match.matchCourtLocation.longitude;
+
+  return typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude)
+    ? { latitude, longitude }
+    : null;
+}
+
+function getMatchId(match: DBMatch) {
+  return `${match.userId}-${match.startsAt.seconds}-${match.startsAt.nanoseconds}`;
+}
+
+function getSportLabel(match: DBMatch): OnboardingMatchedPlayerDetails['sport'] {
+  return match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
+}
+
+function getSkillLevelLabel(
+  match: DBMatch,
+): OnboardingMatchedPlayerDetails['matchDetails']['skillLevel'] {
+  if (match.skillLevel === 'any') return 'Casual';
+  return `${match.skillLevel.charAt(0).toUpperCase()}${match.skillLevel.slice(1)}` as OnboardingMatchedPlayerDetails['matchDetails']['skillLevel'];
+}
+
+function getDistanceLabel(match: DBMatch) {
+  const distance = match.matchCourtLocation.distanceMiles;
+  return distance == null ? 'Distance unavailable' : `${distance.toFixed(1)} mi away`;
+}
+
+function getStartLabels(match: DBMatch) {
+  const startsAt = match.startsAt.toDate();
+  return {
+    date: startsAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    time: startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+  };
+}
+
+function toPlayerDetails(
+  match: DBMatch,
+  fallbackCenter: Pick<Region, 'latitude' | 'longitude'>,
+): OnboardingMatchedPlayerDetails {
+  const coordinate = getMatchCoordinate(match) ?? fallbackCenter;
+  const startsAt = getStartLabels(match);
+  const courtType = match.matchCourtLocation.courtType;
+
+  return {
+    id: getMatchId(match),
+    name: match.userId,
+    sport: getSportLabel(match),
+    matchDetails: {
+      ...coordinate,
+      distance: getDistanceLabel(match),
+      gameType: match.gameType as OnboardingMatchedPlayerDetails['matchDetails']['gameType'],
+      locationName: match.matchCourtLocation.name,
+      numPlayers: match.playersNeeded,
+      playDate: startsAt.date,
+      playTime: startsAt.time,
+      skillLevel: getSkillLevelLabel(match),
+      courtType:
+        courtType === 'public_indoor'
+          ? 'Indoor'
+          : courtType === 'public_outdoor'
+            ? 'Outdoor'
+            : undefined,
+    },
+  };
+}
+
 export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProps) {
   const sport = route.params.selectedSport;
   const searchArea = route.params.searchCriteria;
   const navigation = useNavigation();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [matchedPlayers, setMatchedPlayers] = useState<MatchedPlayer[]>(MOCK_MATCHES);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const mapRef = useRef<MapView>(null);
   const params = {
     ...route.params,
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMatchedPlayers(MOCK_MATCHES);
-      setIsLoading(false);
-    }, 2500);
+  const { data: matches = [], isLoading } = useQuery<DBMatch[]>({
+    queryKey: ['findNearbyMatches'],
+    queryFn: async () => {
+      const matches = await matchService.findMatches();
+      console.log(matches);
 
-    const matches = MOCK_MATCHES;
+      if (!matches.length) {
+        navigation.navigate('OnboardingMatchNotFound', route.params);
+      }
 
-    // if (!matches.length) {
-    //   navigation.navigate('OnboardingMatchNotFound', route);
-    // }
-
-    return () => clearTimeout(timer);
-  }, []);
+      return matches;
+    },
+  });
 
   const mapCenter =
     searchArea.type === 'Current' && searchArea.latitude != null && searchArea.longitude != null
@@ -176,25 +168,25 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
           longitude: searchArea.longitude,
         }
       : { latitude: 45.51512, longitude: -122.67948 };
-  const initialMapRegion = getInitialMapRegion(matchedPlayers, mapCenter);
+  const initialMapRegion = getInitialMapRegion(matches, mapCenter);
 
-  const selectPlayer = (player: MatchedPlayer) => {
-    const coordinate = {
-      latitude: player.matchDetails.latitude ?? mapCenter.latitude,
-      longitude: player.matchDetails.longitude ?? mapCenter.longitude,
-    };
+  const selectMatch = (match: DBMatch) => {
+    const coordinate = getMatchCoordinate(match) ?? mapCenter;
 
-    setSelectedPlayerId(player.id);
+    setSelectedMatchId(getMatchId(match));
     mapRef.current?.animateCamera({ center: coordinate }, { duration: 350 });
   };
 
-  const handleMatchCardPress = (player: MatchedPlayer) => {
-    if (selectedPlayerId === player.id) {
-      navigation.navigate('OnboardingPlayerDetails', { ...params, ...player });
+  const handleMatchCardPress = (match: DBMatch) => {
+    if (selectedMatchId === getMatchId(match)) {
+      navigation.navigate('OnboardingPlayerDetails', {
+        ...params,
+        ...toPlayerDetails(match, mapCenter),
+      });
       return;
     }
 
-    selectPlayer(player);
+    selectMatch(match);
   };
 
   return (
@@ -222,7 +214,7 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
           <View style={styles.hero}>
             <View style={styles.resultBadge}>
               <View style={styles.statusDot} />
-              <Text style={styles.resultBadgeText}>{matchedPlayers.length} matches found</Text>
+              <Text style={styles.resultBadgeText}>{matches.length} matches found</Text>
             </View>
             <Text style={styles.screenTitle}>
               Matches near {searchArea.type === 'Current' ? 'you' : searchArea.label}
@@ -260,35 +252,38 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
               loadingEnabled
               loadingIndicatorColor={Theme.PRIMARY}
             >
-              {matchedPlayers.map((player) => (
-                <Marker
-                  key={player.id}
-                  coordinate={{
-                    latitude: player.matchDetails.latitude ?? mapCenter.latitude,
-                    longitude: player.matchDetails.longitude ?? mapCenter.longitude,
-                  }}
-                  title={player.name}
-                  description={`${player.sport} - ${player.matchDetails.distance}`}
-                  onPress={() => selectPlayer(player)}
-                  zIndex={selectedPlayerId === player.id ? 1 : 0}
-                >
-                  <View
-                    style={[
-                      styles.playerMarker,
-                      selectedPlayerId === player.id && styles.selectedPlayerMarker,
-                    ]}
+              {matches.map((match) => {
+                const matchId = getMatchId(match);
+                const coordinate = getMatchCoordinate(match) ?? mapCenter;
+                const sportLabel = getSportLabel(match);
+
+                return (
+                  <Marker
+                    key={matchId}
+                    coordinate={coordinate}
+                    title={match.matchCourtLocation.name}
+                    description={`${sportLabel} - ${getDistanceLabel(match)}`}
+                    onPress={() => selectMatch(match)}
+                    zIndex={selectedMatchId === matchId ? 1 : 0}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.playerMarkerText,
-                        selectedPlayerId === player.id && styles.selectedPlayerMarkerText,
+                        styles.playerMarker,
+                        selectedMatchId === matchId && styles.selectedPlayerMarker,
                       ]}
                     >
-                      {getPlayerInitials(player.name)}
-                    </Text>
-                  </View>
-                </Marker>
-              ))}
+                      <Text
+                        style={[
+                          styles.playerMarkerText,
+                          selectedMatchId === matchId && styles.selectedPlayerMarkerText,
+                        ]}
+                      >
+                        {getPlayerInitials(match.userId)}
+                      </Text>
+                    </View>
+                  </Marker>
+                );
+              })}
             </MapView>
           </View>
 
@@ -297,92 +292,86 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
             <Text style={styles.listHint}>Tap twice for details</Text>
           </View>
 
-          {matchedPlayers.map((player) => (
-            <Pressable
-              key={player.id}
-              onPress={() => handleMatchCardPress(player)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedPlayerId === player.id }}
-              accessibilityLabel={
-                selectedPlayerId === player.id
-                  ? `View details for ${player.name}`
-                  : `Select ${player.name}`
-              }
-              style={({ pressed }) => [
-                styles.matchCard,
-                selectedPlayerId === player.id && styles.selectedMatchCard,
-                pressed && styles.pressedCard,
-              ]}
-            >
-              <View
-                style={[
-                  styles.playerAvatar,
-                  selectedPlayerId === player.id && styles.selectedPlayerAvatar,
+          {matches.map((match) => {
+            const matchId = getMatchId(match);
+            const isSelected = selectedMatchId === matchId;
+            const sportLabel = getSportLabel(match);
+            const startsAt = getStartLabels(match);
+
+            return (
+              <Pressable
+                key={matchId}
+                onPress={() => handleMatchCardPress(match)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={
+                  isSelected
+                    ? `View details for the match at ${match.matchCourtLocation.name}`
+                    : `Select the match at ${match.matchCourtLocation.name}`
+                }
+                style={({ pressed }) => [
+                  styles.matchCard,
+                  isSelected && styles.selectedMatchCard,
+                  pressed && styles.pressedCard,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.playerAvatarText,
-                    selectedPlayerId === player.id && styles.selectedPlayerAvatarText,
-                  ]}
-                >
-                  {getPlayerInitials(player.name)}
-                </Text>
-              </View>
-
-              <View style={styles.matchInfo}>
-                <View style={styles.cardTopRow}>
-                  <View style={styles.sportBadge}>
-                    <MaterialCommunityIcons
-                      name={player.sport === 'Tennis' ? 'tennis' : 'table-tennis'}
-                      size={13}
-                      color={Theme.PRIMARY}
-                    />
-                    <Text style={styles.sportBadgeText}>{player.sport}</Text>
-                  </View>
-                  <Text style={styles.distanceText}>{player.matchDetails.distance}</Text>
-                </View>
-
-                <Text style={styles.venueName} numberOfLines={1}>
-                  {player.matchDetails.locationName ?? 'Location shared later'}
-                </Text>
-
-                <View style={styles.locationDetails}>
-                  <MaterialCommunityIcons
-                    name="calendar-blank-outline"
-                    size={14}
-                    color={Theme.PRIMARY}
-                  />
-                  <Text style={styles.matchDetails}>{player.matchDetails.playDate ?? 'Today'}</Text>
-                  <View style={styles.metaDot} />
-                  <MaterialCommunityIcons name="clock-outline" size={14} color={Theme.PRIMARY} />
-                  <Text style={styles.matchDetails}>
-                    {player.matchDetails.playTime ?? 'Time TBD'}
+                <View style={[styles.playerAvatar, isSelected && styles.selectedPlayerAvatar]}>
+                  <Text
+                    style={[styles.playerAvatarText, isSelected && styles.selectedPlayerAvatarText]}
+                  >
+                    {getPlayerInitials(match.userId)}
                   </Text>
                 </View>
 
-                <View style={styles.hostRow}>
-                  <Text style={styles.hostText}>Hosted by {player.name}</Text>
-                  <View style={styles.skillPill}>
-                    <Text style={styles.skillText}>{player.matchDetails.skillLevel}</Text>
+                <View style={styles.matchInfo}>
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.sportBadge}>
+                      <MaterialCommunityIcons
+                        name={match.sport === 'tennis' ? 'tennis' : 'table-tennis'}
+                        size={13}
+                        color={Theme.PRIMARY}
+                      />
+                      <Text style={styles.sportBadgeText}>{sportLabel}</Text>
+                    </View>
+                    <Text style={styles.distanceText}>{getDistanceLabel(match)}</Text>
+                  </View>
+
+                  <Text style={styles.venueName} numberOfLines={1}>
+                    {match.matchCourtLocation.name || 'Location shared later'}
+                  </Text>
+
+                  <View style={styles.locationDetails}>
+                    <MaterialCommunityIcons
+                      name="calendar-blank-outline"
+                      size={14}
+                      color={Theme.PRIMARY}
+                    />
+                    <Text style={styles.matchDetails}>{startsAt.date}</Text>
+                    <View style={styles.metaDot} />
+                    <MaterialCommunityIcons name="clock-outline" size={14} color={Theme.PRIMARY} />
+                    <Text style={styles.matchDetails}>{startsAt.time}</Text>
+                  </View>
+
+                  <View style={styles.hostRow}>
+                    <Text style={styles.hostText}>{match.playersNeeded} players needed</Text>
+                    <View style={styles.skillPill}>
+                      <Text style={styles.skillText}>{getSkillLevelLabel(match)}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <View
-                style={[
-                  styles.chevronContainer,
-                  selectedPlayerId === player.id && styles.selectedChevronContainer,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={selectedPlayerId === player.id ? 'arrow-right' : 'chevron-right'}
-                  size={20}
-                  color={selectedPlayerId === player.id ? Theme.SURFACE : Theme.PRIMARY}
-                />
-              </View>
-            </Pressable>
-          ))}
+                <View
+                  style={[styles.chevronContainer, isSelected && styles.selectedChevronContainer]}
+                >
+                  <MaterialCommunityIcons
+                    name={isSelected ? 'arrow-right' : 'chevron-right'}
+                    size={20}
+                    color={isSelected ? Theme.SURFACE : Theme.PRIMARY}
+                  />
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>

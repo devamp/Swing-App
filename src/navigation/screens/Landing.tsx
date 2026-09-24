@@ -32,7 +32,7 @@ export function Landing() {
           Find Players Near Me
         </Button>
         <Button
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('Login')}
           icon={({ size, color }) => (
             <MaterialCommunityIcons name="login" size={22} color={color} />
           )}

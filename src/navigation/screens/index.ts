@@ -8,3 +8,5 @@ export { OnboardingPlayerDetails } from './Onboarding/OnboardingPlayerDetails';
 export { Home } from './BottomNavBar/Home';
 export { Profile } from './BottomNavBar/Profile';
 export { FindMatches } from './BottomNavBar/FindMatches';
+export { CreateMatch } from './CreateMatch';
+export { MatchDetail } from './MatchDetail';

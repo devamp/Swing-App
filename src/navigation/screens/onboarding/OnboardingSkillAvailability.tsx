@@ -63,12 +63,7 @@ export function OnboardingSkillAvailability({ route }: OnboardingSkillAvailabili
       playStyles,
     };
 
-    const matchesFound = true;
-    if (matchesFound) {
-      navigation.navigate('OnboardingMatchedPlayers', params);
-    } else {
-      navigation.navigate('OnboardingMatchNotFound', params);
-    }
+    navigation.navigate('OnboardingMatchedPlayers', params);
   };
 
   const isReady = Boolean(skillLevel);

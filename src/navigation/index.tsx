@@ -10,17 +10,21 @@ import {
   OnboardingSkillAvailability,
   Home,
   Profile,
+  FindMatches,
+  CreateMatch,
+  MatchDetail,
 } from './screens';
 import { Onboarding } from './screens/Onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
 import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NotFound } from './screens/NotFound';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Theme from '../theme';
 
 const HomeTabs = createBottomTabNavigator({
   screenOptions: {
     headerShown: false,
+    tabBarActiveTintColor: Theme.PRIMARY,
   },
   screens: {
     Home: {
@@ -37,7 +41,7 @@ const HomeTabs = createBottomTabNavigator({
       },
     },
     FindMatches: {
-      screen: Profile,
+      screen: FindMatches,
       options: {
         tabBarIcon: ({ focused, color, size }) => (
           <MaterialCommunityIcons
@@ -128,6 +132,19 @@ const RootStack = createNativeStackNavigator({
     },
     Home: {
       screen: HomeTabs,
+      options: {
+        headerShown: false,
+        gestureEnabled: false,
+      },
+    },
+    CreateMatch: {
+      screen: CreateMatch,
+      options: {
+        headerShown: false,
+      },
+    },
+    MatchDetail: {
+      screen: MatchDetail,
       options: {
         headerShown: false,
       },

@@ -1,0 +1,319 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { FoundMatch } from '../services/matchService/types';
+import Theme from '../theme';
+
+type MatchCardProps = {
+  match: FoundMatch;
+  onPress: () => void;
+};
+
+function capitalize(value: string) {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+export function formatSkillLevel(skillLevel: FoundMatch['skillLevel']) {
+  return skillLevel === 'any' ? 'Any skill level' : capitalize(skillLevel);
+}
+
+export function getRelativeDateLabel(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const matchDay = new Date(date);
+  matchDay.setHours(0, 0, 0, 0);
+  const daysAway = Math.round((matchDay.getTime() - today.getTime()) / 86_400_000);
+
+  if (daysAway === 0) return 'Today';
+  if (daysAway === 1) return 'Tomorrow';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
+export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
+  const startDate = match.startsAt.toDate();
+  const month = new Intl.DateTimeFormat('en-US', { month: 'short' })
+    .format(startDate)
+    .toUpperCase();
+  const day = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(startDate);
+  const startTime = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(startDate);
+  const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
+  const playersNeededLabel = `${match.playersNeeded} ${
+    match.playersNeeded === 1 ? 'player' : 'players'
+  } needed`;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View ${match.gameType} match details`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.upcomingMatchCard, pressed && styles.pressed]}
+    >
+      <View style={styles.matchCardTopRow}>
+        <View style={styles.dateBadge}>
+          <Text style={styles.dateMonth}>{month}</Text>
+          <Text style={styles.dateDay}>{day}</Text>
+        </View>
+
+        <View style={styles.matchSummary}>
+          <View style={styles.matchTitleRow}>
+            <Text style={styles.matchTitle}>{match.gameType}</Text>
+            <View style={styles.hostingBadge}>
+              <MaterialCommunityIcons name="account-star" size={13} color={Theme.PRIMARY} />
+              <Text style={styles.hostingText}>Hosting</Text>
+            </View>
+          </View>
+          <Text style={styles.matchSubtitle}>
+            {sportLabel} · {playersNeededLabel}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.detailRow}>
+        <MaterialCommunityIcons name="clock-outline" size={18} color={Theme.PRIMARY} />
+        <Text style={styles.detailText}>
+          {getRelativeDateLabel(startDate)} · {startTime} · {formatSkillLevel(match.skillLevel)}
+        </Text>
+      </View>
+      <View style={styles.detailRow}>
+        <MaterialCommunityIcons name="map-marker-outline" size={18} color={Theme.PRIMARY} />
+        <Text style={styles.detailText} numberOfLines={1}>
+          {match.matchCourtLocation.name}
+        </Text>
+      </View>
+      <View style={styles.viewDetailsRow}>
+        <Text style={styles.viewDetailsText}>View details</Text>
+        <MaterialCommunityIcons name="arrow-right" size={15} color={Theme.PRIMARY} />
+      </View>
+    </Pressable>
+  );
+}
+
+export function CompactMatchCard({ match, onPress }: MatchCardProps) {
+  const startDate = match.startsAt.toDate();
+  const startTime = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(startDate);
+  const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
+  const distance = match.matchCourtLocation.distanceMiles;
+  const spotsLabel = `${match.playersNeeded} ${match.playersNeeded === 1 ? 'spot' : 'spots'} left`;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View ${sportLabel} ${match.gameType} match at ${match.matchCourtLocation.name}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.compactCard, pressed && styles.pressed]}
+    >
+      <View style={styles.compactTopRow}>
+        <View style={styles.sportIcon}>
+          <MaterialCommunityIcons
+            name={match.sport === 'tennis' ? 'tennis' : 'table-tennis'}
+            size={21}
+            color={Theme.PRIMARY}
+          />
+        </View>
+        <View style={styles.compactHeading}>
+          <Text style={styles.compactTitle} numberOfLines={1}>
+            {sportLabel} · {match.gameType}
+          </Text>
+          <Text style={styles.skillText} numberOfLines={1}>
+            {formatSkillLevel(match.skillLevel)}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={styles.compactDateTime}>
+        {getRelativeDateLabel(startDate)} · {startTime}
+      </Text>
+      <View style={styles.compactLocationRow}>
+        <MaterialCommunityIcons name="map-marker-outline" size={16} color={Theme.PRIMARY} />
+        <Text style={styles.compactLocation} numberOfLines={1}>
+          {match.matchCourtLocation.name}
+          {typeof distance === 'number' ? ` · ${distance.toFixed(1)} mi` : ''}
+        </Text>
+      </View>
+      <Text style={styles.spotsText}>{spotsLabel}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  pressed: {
+    opacity: 0.72,
+  },
+  upcomingMatchCard: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DDEAEA',
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.TEXT,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  matchCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dateBadge: {
+    width: 52,
+    height: 58,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EAF5F5',
+  },
+  dateMonth: {
+    color: Theme.PRIMARY,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  dateDay: {
+    color: Theme.PRIMARY,
+    fontSize: 23,
+    fontWeight: '800',
+    lineHeight: 27,
+  },
+  matchSummary: {
+    flex: 1,
+  },
+  matchTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  matchTitle: {
+    flexShrink: 1,
+    color: Theme.TEXT,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  matchSubtitle: {
+    marginTop: 4,
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 12,
+  },
+  hostingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EAF5F5',
+  },
+  hostingText: {
+    color: Theme.PRIMARY,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  divider: {
+    height: 1,
+    marginVertical: 14,
+    backgroundColor: '#E7EEEE',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 9,
+  },
+  detailText: {
+    flex: 1,
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 3,
+    marginTop: 2,
+  },
+  viewDetailsText: {
+    color: Theme.PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  compactCard: {
+    width: 286,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DDEAEA',
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.TEXT,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  compactTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  sportIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: '#EAF5F5',
+  },
+  compactHeading: {
+    flex: 1,
+  },
+  compactTitle: {
+    color: Theme.TEXT,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  skillText: {
+    marginTop: 2,
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  compactDateTime: {
+    marginTop: 11,
+    color: Theme.TEXT,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  compactLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 7,
+  },
+  compactLocation: {
+    flex: 1,
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  spotsText: {
+    marginTop: 9,
+    color: Theme.PRIMARY,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+});

@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -34,6 +35,31 @@ class AuthService {
 
   async logout(): Promise<void> {
     await signOut(Auth);
+  }
+
+  async updateDisplayName(displayName: string): Promise<void> {
+    if (!Auth.currentUser) throw new Error('No authenticated user');
+    await updateProfile(Auth.currentUser, { displayName });
+  }
+
+  async deleteAccount(): Promise<void> {
+    const user = Auth.currentUser;
+    if (!user) throw new Error('No authenticated user');
+
+    const lastSignInAt = user.metadata.lastSignInTime
+      ? new Date(user.metadata.lastSignInTime).getTime()
+      : 0;
+    if (!lastSignInAt || Date.now() - lastSignInAt > 4 * 60 * 1000) {
+      const error = new Error('A recent sign-in is required to delete this account') as Error & {
+        code: string;
+      };
+      error.code = 'auth/requires-recent-login';
+      throw error;
+    }
+
+    // Delete private profile data while the user still has permission to do so.
+    await userService.deleteUserById(user.uid);
+    await deleteUser(user);
   }
 
   getCurrentUser(): User | null {
