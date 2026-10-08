@@ -35,11 +35,13 @@ const sectionStyles = StyleSheet.create({
     marginTop: 20,
   },
   sectionHeaderRow: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
   sectionTitle: {
+    flexShrink: 1,
     color: Theme.PRIMARY,
     fontSize: 22,
     fontWeight: '700',

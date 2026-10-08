@@ -20,6 +20,7 @@ import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Theme from '../theme';
+import { PlayMapMatchDetail, PlayMapCreateMatch } from './screens/PlayMapDetails';
 
 const HomeTabs = createBottomTabNavigator({
   screenOptions: {
@@ -142,6 +143,14 @@ const RootStack = createNativeStackNavigator({
       options: {
         headerShown: false,
       },
+    },
+    PlayMapMatchDetail: {
+      screen: PlayMapMatchDetail,
+      options: { headerShown: false },
+    },
+    PlayMapCreateMatch: {
+      screen: PlayMapCreateMatch,
+      options: { headerShown: false },
     },
     MatchDetail: {
       screen: MatchDetail,

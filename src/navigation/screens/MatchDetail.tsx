@@ -1,8 +1,8 @@
 import type { StaticScreenProps } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatSkillLevel, getRelativeDateLabel } from '../../components/MatchCards';
@@ -14,6 +14,7 @@ type MatchDetailProps = StaticScreenProps<{ matchId: string }>;
 
 export function MatchDetail({ route }: MatchDetailProps) {
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const { matchId } = route.params;
   const {
     data: match,
@@ -28,6 +29,37 @@ export function MatchDetail({ route }: MatchDetailProps) {
   const goBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
     else navigation.navigate('Home');
+  };
+
+  const { mutate: deleteMatch, isPending: isDeleting } = useMutation({
+    mutationFn: (id: string) => matchService.deleteMatchById(id),
+    onSuccess: () => {
+      queryClient.setQueryData(['matchDetail', matchId], null);
+      for (const key of ['upcomingMatch', 'dashboardDiscovery', 'loadInitialUser', 'profile']) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
+      goBack();
+    },
+    onError: (error) => {
+      Alert.alert(
+        'Could not delete the match',
+        error instanceof Error ? error.message : 'Please try again later.',
+        undefined,
+      );
+    },
+  });
+
+  const confirmDeleteMatch = () => {
+    if (!match || isDeleting || match.userId !== authService.getCurrentUser()?.uid) return;
+
+    Alert.alert(
+      'Delete match?',
+      `Are you sure you want to delete "${match.matchName}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteMatch(match.id) },
+      ],
+    );
   };
 
   return (
@@ -81,18 +113,40 @@ export function MatchDetail({ route }: MatchDetailProps) {
                 />
               </View>
               <View style={styles.titleCopy}>
-                <Text style={styles.matchTitle}>{match.gameType}</Text>
+                <Text style={styles.matchTitle}>{match.matchName}</Text>
                 <Text style={styles.matchSubtitle}>
                   {match.sport === 'tennis' ? 'Tennis' : 'Pickleball'} match
                 </Text>
               </View>
-              {match.userId === authService.getCurrentUser()?.uid ? (
-                <View style={styles.hostingBadge}>
-                  <MaterialCommunityIcons name="account-star" size={13} color={Theme.PRIMARY} />
-                  <Text style={styles.hostingText}>Hosting</Text>
-                </View>
-              ) : null}
             </View>
+            {match.userId === authService.getCurrentUser()?.uid ? (
+              <View style={styles.hostingContainer}>
+                <View style={styles.hostingBadge}>
+                  <MaterialCommunityIcons name="account-star" size={16} color={Theme.PRIMARY} />
+                  <Text style={styles.hostingText}>Hosted by you</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete match"
+                  accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
+                  disabled={isDeleting}
+                  onPress={confirmDeleteMatch}
+                  style={({ pressed }) => [
+                    styles.deleteHostMatchBadge,
+                    (pressed || isDeleting) && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="trash-can-outline"
+                    size={16}
+                    color="#B54747"
+                  />
+                  <Text style={styles.deleteHostMatchText}>
+                    {isDeleting ? 'Deleting…' : 'Delete'}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             <View style={styles.divider} />
 
@@ -233,18 +287,50 @@ const styles = StyleSheet.create({
     color: Theme.SUB_TEXT_COLOR,
     fontSize: 12,
   },
+  hostingContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 16,
+  },
   hostingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 999,
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDEAEA',
     backgroundColor: '#EAF5F5',
   },
   hostingText: {
     color: Theme.PRIMARY,
-    fontSize: 10,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  deleteHostMatchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F2DADA',
+    backgroundColor: '#FFF4F4',
+  },
+  deleteHostMatchText: {
+    color: '#B54747',
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '700',
   },
   divider: {

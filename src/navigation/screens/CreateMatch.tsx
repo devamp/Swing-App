@@ -28,7 +28,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, type LatLng, type Region } from 'reac
 import SelectableChip from '../../components/SelectableChip';
 import Theme from '../../theme';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { courtService, matchService } from '../../services';
+import { authService, courtService, matchService } from '../../services';
 import type { CourtLocation, CourtType, SkillLevel, Sport } from '../../types';
 import { CreateMatchForm } from '../../services/matchService/types';
 
@@ -108,6 +108,7 @@ const INITIAL_FORM: CreateMatchForm = {
   gameType: null,
   playersNeeded: 2,
   note: '',
+  matchName: '',
 };
 
 function dateForOption(label: string) {
@@ -239,6 +240,7 @@ function PreviewMatchCard({ form }: { form: CreateMatchForm }) {
   const dateTime = [form.dateLabel, form.timeLabel].filter(Boolean).join(' · ');
   const details = [
     { icon: 'calendar-outline' as const, label: dateTime || 'Date and time not selected' },
+    { icon: 'map-marker-outline' as const, label: form.location?.name || 'Location not selected' },
     { icon: 'signal-cellular-2' as const, label: skillLabel ?? 'Any Skill' },
     { icon: 'flag-outline' as const, label: form.gameType ?? 'Game type not selected' },
     {
@@ -246,6 +248,11 @@ function PreviewMatchCard({ form }: { form: CreateMatchForm }) {
       label: `${form.playersNeeded} ${form.playersNeeded === 1 ? 'player' : 'players'} needed`,
     },
   ];
+
+  const { data: authUser } = useQuery({
+    queryKey: ['getAuthUser'],
+    queryFn: () => authService.getCurrentUser(),
+  });
 
   return (
     <View style={styles.previewCard}>
@@ -259,7 +266,7 @@ function PreviewMatchCard({ form }: { form: CreateMatchForm }) {
         </View>
         <View style={styles.previewHeading}>
           <Text style={styles.previewTitle} numberOfLines={1}>
-            {form.location?.name ?? 'Location not selected'}
+            {form.matchName || `${authUser?.displayName}'s Match`}
           </Text>
           <Text style={styles.previewSubtitle}>
             {form.sport
@@ -736,6 +743,7 @@ export function CreateMatch() {
         gameType: form.gameType,
         playersNeeded: form.playersNeeded,
         note: form.note,
+        matchName: form.matchName,
       });
       await queryClient.invalidateQueries({ queryKey: ['upcomingMatch'] });
       Alert.alert('Match posted', 'Nearby players can now find your match.', [
@@ -930,6 +938,26 @@ export function CreateMatch() {
               value={form.playersNeeded}
               onChange={(value) => updateForm('playersNeeded', value)}
             />
+          </SectionCard>
+
+          <SectionCard
+            title="Name your match"
+            icon="rename-box-outline"
+            optional
+            complete={form.matchName.trim().length > 0}
+          >
+            <TextInput
+              accessibilityLabel="Optional match note"
+              multiline
+              maxLength={25}
+              onChangeText={(name) => updateForm('matchName', name)}
+              placeholder="Example: Casual doubles"
+              placeholderTextColor="#9CA3AF"
+              style={styles.matchNameInput}
+              textAlignVertical="top"
+              value={form.matchName}
+            />
+            <Text style={styles.characterCount}>{form.matchName.length}/25</Text>
           </SectionCard>
 
           <SectionCard
@@ -1432,6 +1460,18 @@ const styles = StyleSheet.create({
   },
   noteInput: {
     minHeight: 112,
+    borderWidth: 1,
+    borderColor: Theme.SECONDARY,
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    color: Theme.TEXT,
+    fontSize: 14,
+    lineHeight: 20,
+    backgroundColor: Theme.SURFACE,
+  },
+  matchNameInput: {
+    minHeight: 50,
     borderWidth: 1,
     borderColor: Theme.SECONDARY,
     borderRadius: 14,

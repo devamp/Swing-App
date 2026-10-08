@@ -12,6 +12,7 @@ export type CreateMatchForm = {
   skillLevel: SkillLevel;
   gameType: string | null;
   playersNeeded: number;
+  matchName: string;
   note: string;
 };
 
@@ -23,6 +24,7 @@ export type CreateMatchParams = {
   gameType: string;
   playersNeeded: number;
   note: string;
+  matchName: string;
 };
 
 export type DBMatch = {
@@ -35,6 +37,7 @@ export type DBMatch = {
   gameType: string;
   playersNeeded: number;
   note: string;
+  matchName: string;
   createdAt: FieldValue;
   updatedAt: FieldValue;
 };

@@ -427,10 +427,7 @@ export function Profile() {
       doc(Database, 'Users', userId),
       (snapshot) => {
         if (snapshot.exists()) {
-          queryClient.setQueryData<UserDocument>(
-            profileQueryKey,
-            snapshot.data() as UserDocument,
-          );
+          queryClient.setQueryData<UserDocument>(profileQueryKey, snapshot.data() as UserDocument);
         } else {
           void profileQuery.refetch();
         }
@@ -496,6 +493,13 @@ export function Profile() {
         { text: 'Delete account', style: 'destructive', onPress: () => deleteMutation.mutate() },
       ],
     );
+  };
+
+  const confirmLogOut = () => {
+    Alert.alert('Log out?', 'Are you sure you want to log out now?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: () => logoutMutation.mutate() },
+    ]);
   };
 
   const requestLocationPermission = async () => {
@@ -665,24 +669,9 @@ export function Profile() {
               onPress={() => setEditVisible(true)}
             />
             <SettingsRow
-              icon="bell-outline"
-              label="Notification Preferences"
-              onPress={() => showPlaceholder('Notification Preferences')}
-            />
-            <SettingsRow
-              icon="map-marker-radius-outline"
-              label="Location Permissions"
-              onPress={requestLocationPermission}
-            />
-            <SettingsRow
-              icon="shield-account-outline"
-              label="Privacy & Safety"
-              onPress={() => showPlaceholder('Privacy & Safety')}
-            />
-            <SettingsRow
               icon="logout"
               label="Log Out"
-              onPress={() => logoutMutation.mutate()}
+              onPress={confirmLogOut}
               loading={logoutMutation.isPending}
             />
             <SettingsRow

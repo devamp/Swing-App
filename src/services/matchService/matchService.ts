@@ -3,6 +3,8 @@ import {
   collection,
   doc,
   getDocs,
+  getDocsFromServer,
+  onSnapshot,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -12,9 +14,15 @@ import {
   increment,
   where,
   getDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import { CreateMatchParams, DBMatch, FindMatchFilter, FoundMatch } from './types';
 import { authService } from '../authService';
+import { userService } from '../userService';
+import { PlayerProfileUpdate } from '../../types';
+
+const discoverableMatchesQuery = () =>
+  query(collection(Database, 'Matches'), where('startsAt', '>=', Timestamp.now()));
 
 class MatchService {
   async createMatch(createMatchParams: CreateMatchParams): Promise<string> {
@@ -23,7 +31,7 @@ class MatchService {
       if (!authUser) throw new Error('Could not retrieve auth user');
 
       const { uid } = authUser;
-      const { sport, location, startsAt, skillLevel, gameType, playersNeeded, note } =
+      const { sport, location, startsAt, skillLevel, gameType, playersNeeded, note, matchName } =
         createMatchParams;
 
       if (!Number.isFinite(startsAt.getTime())) {
@@ -46,6 +54,7 @@ class MatchService {
         gameType,
         playersNeeded,
         note: note.trim(),
+        matchName: matchName.trim() || `${authUser.displayName}'s Match`,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -108,6 +117,28 @@ class MatchService {
     }
   }
 
+  async getDiscoverableMatches(): Promise<FoundMatch[]> {
+    // Filter geographically before limiting the Dashboard preview. A fixed first page
+    // can otherwise report no results while nearby matches exist on later pages.
+    const snapshot = await getDocsFromServer(discoverableMatchesQuery());
+    return snapshot.docs.map((document) => ({
+      ...(document.data() as Omit<FoundMatch, 'id'>),
+      id: document.id,
+    }));
+  }
+
+  subscribeToDiscoverableMatchChanges(onChange: () => void, onError: (error: Error) => void) {
+    return onSnapshot(
+      discoverableMatchesQuery(),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        // Wait for server confirmation rather than refreshing from a cached snapshot.
+        if (!snapshot.metadata.fromCache) onChange();
+      },
+      onError,
+    );
+  }
+
   // Find all matches that match a certain criteria
   async findMatches({
     filter,
@@ -147,6 +178,7 @@ class MatchService {
             createdAt,
             updatedAt,
             matchCourtLocation,
+            matchName,
           } = doc.data();
 
           matches.push({
@@ -161,6 +193,7 @@ class MatchService {
             createdAt,
             updatedAt,
             matchCourtLocation,
+            matchName,
           });
         });
       }
@@ -168,6 +201,32 @@ class MatchService {
       return matches;
     } catch (error) {
       console.error('Error finding matches: ', error);
+      throw error;
+    }
+  }
+
+  async deleteMatchById(matchId: string): Promise<void> {
+    try {
+      const authUser = authService.getCurrentUser();
+      if (!authUser) throw new Error('Could not retrieve auth user');
+
+      const ref = doc(Database, 'Matches', matchId);
+      await runTransaction(Database, async (transaction) => {
+        const dbMatch = await transaction.get(ref);
+        // Already removed: do not decrement the host's count again.
+        if (!dbMatch.exists()) return;
+        if (dbMatch.data().userId !== authUser.uid) {
+          throw new Error('You can only delete matches you host.');
+        }
+
+        const userRef = doc(Database, 'Users', authUser.uid);
+        transaction.update(userRef, {
+          'profile.matchActivity.hosted': increment(-1),
+        });
+        transaction.delete(ref);
+      });
+    } catch (error) {
+      console.error('Error deleting match by id: ', error);
       throw error;
     }
   }

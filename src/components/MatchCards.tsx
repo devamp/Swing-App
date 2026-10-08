@@ -63,7 +63,7 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
 
         <View style={styles.matchSummary}>
           <View style={styles.matchTitleRow}>
-            <Text style={styles.matchTitle}>{match.gameType}</Text>
+            <Text style={styles.matchTitle}>{match.matchName}</Text>
             <View style={styles.hostingBadge}>
               <MaterialCommunityIcons name="account-star" size={13} color={Theme.PRIMARY} />
               <Text style={styles.hostingText}>Hosting</Text>
@@ -85,9 +85,7 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
       </View>
       <View style={styles.detailRow}>
         <MaterialCommunityIcons name="map-marker-outline" size={18} color={Theme.PRIMARY} />
-        <Text style={styles.detailText} numberOfLines={1}>
-          {match.matchCourtLocation.name}
-        </Text>
+        <Text style={styles.detailText}>{match.matchCourtLocation.name}</Text>
       </View>
       <View style={styles.viewDetailsRow}>
         <Text style={styles.viewDetailsText}>View details</Text>
@@ -123,12 +121,10 @@ export function CompactMatchCard({ match, onPress }: MatchCardProps) {
           />
         </View>
         <View style={styles.compactHeading}>
-          <Text style={styles.compactTitle} numberOfLines={1}>
-            {sportLabel} · {match.gameType}
+          <Text style={styles.compactTitle}>
+            {match.matchName} · {sportLabel}
           </Text>
-          <Text style={styles.skillText} numberOfLines={1}>
-            {formatSkillLevel(match.skillLevel)}
-          </Text>
+          <Text style={styles.skillText}>{formatSkillLevel(match.skillLevel)}</Text>
         </View>
       </View>
 
@@ -137,7 +133,7 @@ export function CompactMatchCard({ match, onPress }: MatchCardProps) {
       </Text>
       <View style={styles.compactLocationRow}>
         <MaterialCommunityIcons name="map-marker-outline" size={16} color={Theme.PRIMARY} />
-        <Text style={styles.compactLocation} numberOfLines={1}>
+        <Text style={styles.compactLocation}>
           {match.matchCourtLocation.name}
           {typeof distance === 'number' ? ` · ${distance.toFixed(1)} mi` : ''}
         </Text>
@@ -171,7 +167,8 @@ const styles = StyleSheet.create({
   },
   dateBadge: {
     width: 52,
-    height: 58,
+    minHeight: 58,
+    paddingVertical: 6,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -193,6 +190,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   matchTitleRow: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 9,
+    marginBottom: 4,
   },
   detailText: {
     flex: 1,
@@ -253,7 +251,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   compactCard: {
-    width: 286,
+    width: '100%',
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
