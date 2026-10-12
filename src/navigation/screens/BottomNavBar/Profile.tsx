@@ -14,7 +14,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Location from 'expo-location';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ActivityIndicator, Button, Snackbar, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,7 +32,7 @@ import { userService } from '../../../services/userService';
 import { Database } from '../../../services/firebase';
 import Theme from '../../../theme';
 import { getPlayerInitials } from '../../../utils';
-import type { OnboardingMatchPreferencesParams } from '../Onboarding/OnboardingFlowTypes';
+import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
 
 type UserDocument = {
   username?: string;
@@ -128,16 +127,37 @@ function Avatar({ photoUrl, name, size = 92 }: { photoUrl?: string; name: string
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  children,
+  onEdit,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onEdit?: () => void;
+}) {
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {onEdit ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${title.toLowerCase()}`}
+            onPress={onEdit}
+            style={({ pressed }) => [styles.sectionEdit, pressed && styles.pressed]}
+          >
+            <MaterialCommunityIcons name="pencil-outline" size={18} color={Theme.PRIMARY} />
+            <Text style={styles.sectionEditText}>Edit</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {children}
     </View>
   );
 }
 
-function SettingsRow({
+function AccountRow({
   icon,
   label,
   onPress,
@@ -150,19 +170,20 @@ function SettingsRow({
   destructive?: boolean;
   loading?: boolean;
 }) {
-  const color = destructive ? '#B42318' : Theme.TEXT;
+  const color = destructive ? '#B42318' : Theme.PRIMARY;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: loading, busy: loading }}
       disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}
     >
       <MaterialCommunityIcons name={icon} size={22} color={color} />
-      <Text style={[styles.settingsLabel, { color }]}>{label}</Text>
+      <Text style={[styles.accountLabel, destructive && styles.destructiveLabel]}>{label}</Text>
       {loading ? (
-        <ActivityIndicator size={20} color={Theme.PRIMARY} />
+        <ActivityIndicator size={20} color={color} />
       ) : (
         <MaterialCommunityIcons name="chevron-right" size={24} color={Theme.SUB_TEXT_COLOR} />
       )}
@@ -502,19 +523,6 @@ export function Profile() {
     ]);
   };
 
-  const requestLocationPermission = async () => {
-    const response = await Location.requestForegroundPermissionsAsync();
-    Alert.alert(
-      'Location permissions',
-      response.granted
-        ? 'Swing can use your general location to find nearby matches.'
-        : 'Location access is off. You can enable it in your device settings.',
-    );
-  };
-
-  const showPlaceholder = (title: string) =>
-    Alert.alert(title, 'This setting is coming soon in a future Swing update.');
-
   if (!authUser || profileQuery.isError) {
     return (
       <SafeAreaView style={styles.stateContainer}>
@@ -552,7 +560,7 @@ export function Profile() {
       : '';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -572,6 +580,15 @@ export function Profile() {
               {initialForm.location || 'General area not added'}
             </Text>
           </View>
+          {sports.length ? (
+            <View style={styles.sportBadges}>
+              {sports.map((sport) => (
+                <View key={sport} style={styles.sportBadge}>
+                  <Text style={styles.sportBadgeText}>{sport}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {initialForm.availabilityStatus ? (
             <View style={styles.statusPill}>
               <View style={styles.statusDot} />
@@ -618,34 +635,46 @@ export function Profile() {
           </View>
         ) : null}
 
-        <SectionCard title="Sports & Skill Levels">
-          {sports.length ? (
-            sports.map((sport) => (
-              <View key={sport} style={styles.sportRow}>
-                <View style={styles.sportIcon}>
-                  <MaterialCommunityIcons
-                    name={sport === 'Tennis' ? 'tennis' : 'table-tennis'}
-                    size={24}
-                    color={Theme.PRIMARY}
-                  />
+        <SectionCard title="Playing Profile" onEdit={() => setEditVisible(true)}>
+          <View style={styles.sportsList}>
+            {sports.length ? (
+              sports.map((sport) => (
+                <View key={sport} style={styles.sportRow}>
+                  <View style={styles.sportIcon}>
+                    <MaterialCommunityIcons
+                      name={sport === 'Tennis' ? 'tennis' : 'table-tennis'}
+                      size={24}
+                      color={Theme.PRIMARY}
+                    />
+                  </View>
+                  <Text style={styles.sportName}>{sport}</Text>
+                  <View style={styles.skillBadge}>
+                    <Text style={styles.skillText}>{initialForm.sports?.[sport]}</Text>
+                  </View>
                 </View>
-                <Text style={styles.sportName}>{sport}</Text>
-                <Text style={styles.skillText}>{initialForm.sports?.[sport]}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>Add a sport to start finding players.</Text>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Playing Preferences">
-          <PreferenceRow label="Sports" values={sports} />
-          <PreferenceRow label="Game type" values={[initialForm.preferredGameType || 'Not set']} />
-          <PreferenceRow label="Play style" values={[initialForm.playStyle || 'Not set']} />
-          <PreferenceRow
-            label="Availability"
-            values={availability.length ? availability : ['Not set']}
-          />
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Add a sport to start finding players.</Text>
+            )}
+          </View>
+          <View style={styles.preferencesGrid}>
+            <PreferenceItem label="Game Type" value={initialForm.preferredGameType || 'Not set'} />
+            <PreferenceItem label="Play Style" value={initialForm.playStyle || 'Not set'} />
+            <PreferenceItem
+              label="Availability"
+              value={availability.length ? availability.join(' · ') : 'Not set'}
+            />
+            {!availability.length ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Set availability in edit profile"
+                onPress={() => setEditVisible(true)}
+                style={({ pressed }) => [styles.availabilityAction, pressed && styles.pressed]}
+              >
+                <Text style={styles.sectionEditText}>Set Availability</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </SectionCard>
 
         <SectionCard title="Match Activity">
@@ -661,27 +690,21 @@ export function Profile() {
           </View>
         </SectionCard>
 
-        <SectionCard title="Settings">
-          <View style={styles.settingsList}>
-            <SettingsRow
-              icon="account-edit-outline"
-              label="Edit Profile"
-              onPress={() => setEditVisible(true)}
-            />
-            <SettingsRow
-              icon="logout"
-              label="Log Out"
-              onPress={confirmLogOut}
-              loading={logoutMutation.isPending}
-            />
-            <SettingsRow
-              icon="delete-outline"
-              label="Delete Account"
-              onPress={confirmDelete}
-              destructive
-              loading={deleteMutation.isPending}
-            />
-          </View>
+        <SectionCard title="Account">
+          <AccountRow
+            icon="logout"
+            label="Log Out"
+            onPress={confirmLogOut}
+            loading={logoutMutation.isPending}
+          />
+          <View style={styles.accountDivider} />
+          <AccountRow
+            icon="delete-outline"
+            label="Delete Account"
+            onPress={confirmDelete}
+            destructive
+            loading={deleteMutation.isPending}
+          />
         </SectionCard>
       </ScrollView>
 
@@ -705,17 +728,11 @@ export function Profile() {
   );
 }
 
-function PreferenceRow({ label, values }: { label: string; values: string[] }) {
+function PreferenceItem({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.preferenceRow}>
+    <View style={styles.preferenceItem}>
       <Text style={styles.preferenceLabel}>{label}</Text>
-      <View style={styles.preferenceValues}>
-        {values.map((value) => (
-          <View key={value} style={styles.preferenceChip}>
-            <Text style={styles.preferenceChipText}>{value}</Text>
-          </View>
-        ))}
-      </View>
+      <Text style={styles.preferenceValue}>{value}</Text>
     </View>
   );
 }
@@ -755,7 +772,7 @@ function ActivityItem({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Theme.BACKGROUND },
   scrollView: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: 20, gap: 16 },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24, gap: 16 },
   screenTitle: { color: Theme.PRIMARY, fontSize: 28, lineHeight: 34, fontWeight: '800' },
   profileHeader: { alignItems: 'center', paddingVertical: 8 },
   avatar: { backgroundColor: '#DCECEC', borderWidth: 3, borderColor: Theme.SURFACE },
@@ -781,9 +798,37 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  locationRow: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 3 },
-  locationText: { color: Theme.SUB_TEXT_COLOR, fontSize: 15 },
+  locationRow: {
+    maxWidth: '100%',
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  locationText: { flexShrink: 1, color: Theme.SUB_TEXT_COLOR, fontSize: 15, textAlign: 'center' },
+  sportBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  sportBadge: {
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EAF5F4',
+  },
+  sportBadgeText: {
+    color: Theme.PRIMARY,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   statusPill: {
+    maxWidth: '100%',
     marginTop: 5,
     flexDirection: 'row',
     alignItems: 'center',
@@ -794,7 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E4F3F0',
   },
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Theme.PRIMARY },
-  statusText: { color: Theme.PRIMARY, fontSize: 13, fontWeight: '700' },
+  statusText: { flexShrink: 1, color: Theme.PRIMARY, fontSize: 13, fontWeight: '700' },
   bio: {
     marginTop: 8,
     maxWidth: 300,
@@ -803,7 +848,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  editButton: { marginTop: 14, borderRadius: 14 },
+  editButton: { maxWidth: '100%', marginTop: 10, borderRadius: 14 },
   editButtonContent: { minHeight: 48, paddingHorizontal: 18 },
   completionCard: {
     flexDirection: 'row',
@@ -841,26 +886,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DDEAEA',
     backgroundColor: Theme.SURFACE,
-    shadowColor: Theme.TEXT,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 9,
-    elevation: 1,
   },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: {
-    marginBottom: 12,
-    color: Theme.PRIMARY,
-    fontSize: 19,
-    lineHeight: 24,
-    fontWeight: '800',
+    flex: 1,
+    color: '#202C30',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '600',
   },
-  sportRow: {
-    minHeight: 54,
+  sectionEdit: {
+    minHeight: 44,
+    minWidth: 44,
+    marginVertical: -9,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#DDEAEA',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  sectionEditText: { color: Theme.PRIMARY, fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  sportsList: { gap: 10 },
+  sportRow: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   sportIcon: {
     width: 38,
@@ -870,51 +920,75 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#EAF5F4',
   },
-  sportName: { flex: 1, color: Theme.TEXT, fontSize: 16, fontWeight: '700' },
-  skillText: { color: Theme.PRIMARY, fontSize: 14, fontWeight: '700' },
-  preferenceRow: {
-    paddingVertical: 9,
-    gap: 7,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#DDEAEA',
-  },
-  preferenceLabel: { color: Theme.SUB_TEXT_COLOR, fontSize: 13, fontWeight: '700' },
-  preferenceValues: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  preferenceChip: {
+  sportName: { flex: 1, color: '#202C30', fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  skillBadge: {
+    flexShrink: 1,
+    maxWidth: '50%',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: '#EAF5F4',
   },
-  preferenceChipText: { color: Theme.PRIMARY, fontSize: 13, fontWeight: '700' },
-  activityRow: { flexDirection: 'row', gap: 8 },
-  activityItem: {
-    flex: 1,
-    minHeight: 92,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    borderRadius: 14,
-    backgroundColor: '#F3F8F8',
-  },
-  activityCount: { marginTop: 3, color: Theme.TEXT, fontSize: 22, fontWeight: '800' },
-  activityLabel: {
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 11,
-    fontWeight: '700',
+  skillText: {
+    color: Theme.PRIMARY,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  settingsList: { marginHorizontal: -4 },
-  settingsRow: {
-    minHeight: 52,
+  preferencesGrid: {
+    marginTop: 14,
+    paddingTop: 14,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 4,
+    flexWrap: 'wrap',
+    columnGap: '4%',
+    rowGap: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#DDEAEA',
   },
-  settingsLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  preferenceItem: { width: '48%', gap: 4 },
+  preferenceLabel: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 17 },
+  preferenceValue: { color: '#202C30', fontSize: 15, lineHeight: 21, fontWeight: '500' },
+  availabilityAction: {
+    width: '48%',
+    minHeight: 44,
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
+  activityRow: { flexDirection: 'row', gap: 8 },
+  activityItem: {
+    flex: 1,
+    minHeight: 84,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#F3F8F8',
+  },
+  activityCount: {
+    marginTop: 3,
+    color: Theme.PRIMARY,
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  activityLabel: {
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  accountRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  accountLabel: { flex: 1, color: '#202C30', fontSize: 15, fontWeight: '500' },
+  destructiveLabel: { color: '#B42318' },
+  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#DDEAEA' },
   pressed: { opacity: 0.65 },
   emptyText: { color: Theme.SUB_TEXT_COLOR, fontSize: 14, lineHeight: 20 },
   stateContainer: {

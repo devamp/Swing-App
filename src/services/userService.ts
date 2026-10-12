@@ -1,4 +1,4 @@
-import { OnboardingMatchPreferencesParams } from '../navigation/screens/Onboarding/OnboardingFlowTypes';
+import { OnboardingMatchPreferencesParams } from '../navigation/screens/onboarding/OnboardingFlowTypes';
 import { SignUpCredentials, User } from '../types';
 import { Database } from './firebase';
 import { Storage } from './firebase';

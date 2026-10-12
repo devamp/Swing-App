@@ -9,7 +9,7 @@ import { authService } from '../../services/authService';
 import type { SignUpCredentials } from '../../types';
 import { useMutation } from '@tanstack/react-query';
 import SwingAlert from '../../components/SwingAlert';
-import { OnboardingMatchPreferencesParams } from './Onboarding/OnboardingFlowTypes';
+import { OnboardingMatchPreferencesParams } from './onboarding/OnboardingFlowTypes';
 
 type SignUpProps = StaticScreenProps<OnboardingMatchPreferencesParams>;
 

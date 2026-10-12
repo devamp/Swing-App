@@ -10,7 +10,7 @@ import {
 import { Auth } from './firebase';
 import { userService } from './userService';
 import { SignUpCredentials } from '../types';
-import { OnboardingMatchPreferencesParams } from '../navigation/screens/Onboarding/OnboardingFlowTypes';
+import { OnboardingMatchPreferencesParams } from '../navigation/screens/onboarding/OnboardingFlowTypes';
 
 class AuthService {
   async signUp(

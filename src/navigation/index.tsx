@@ -14,7 +14,7 @@ import {
   CreateMatch,
   MatchDetail,
 } from './screens';
-import { Onboarding } from './screens/Onboarding/Onboarding';
+import { Onboarding } from './screens/onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
 import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
