@@ -47,13 +47,26 @@ It includes the following:
 
 - In the terminal running the development server, press `i` to open the iOS simulator, `a` to open the Android device or emulator, or `w` to open the web browser.
 
+## Local verification
+
+From a clean checkout, run:
+
+```sh
+npm ci
+npm run verify
+```
+
+`verify` runs `typecheck` (`tsc --noEmit`), then `export:ios` (`expo export --platform ios`). The export writes to the ignored `dist/` directory. This checks TypeScript and production iOS bundling without compiling a native app or requiring Xcode.
+
 ## Notes
 
 This project uses a [development build](https://docs.expo.dev/develop/development-builds/introduction/) and cannot be run with [Expo Go](https://expo.dev/go). To run the app with Expo Go, edit the `package.json` file, remove the `expo-dev-client` package and `--dev-client` flag from the `start` script.
 
 We highly recommend using the development builds for normal development and testing.
 
-The `ios` and `android` folder are gitignored in the project by default as they are automatically generated during the build process ([Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)). This means that you should not edit these folders directly and use [config plugins](https://docs.expo.dev/config-plugins/) instead. However, if you need to edit these folders, you can remove them from the `.gitignore` file so that they are tracked by git.
+This project uses [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/). The tracked `ios` and `android` folders are excluded from EAS uploads by `.easignore`, so EAS Build regenerates them from `app.config.ts` and the installed SDK. Make native configuration changes in `app.config.ts` or config plugins so they are included in cloud builds. Keep `.easignore` in sync with `.gitignore` when adding ignore rules.
+
+After upgrading the Expo SDK or changing native configuration, regenerate local projects with `npx expo prebuild --clean` before running `npm run ios` or `npm run android`. This replaces the local native folders, so migrate any manual native changes into config plugins first. Native dependency changes require rebuilding the development client.
 
 ## Resources
 

@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator, Button } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SelectableChip from '../../components/SelectableChip';
 import { playMapService } from '../../services/playMap/service';

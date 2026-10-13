@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
 import Theme from '../../../theme';
 import { useRef, useState } from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { useNavigation } from '@react-navigation/native';
 import PlayerSearchLoader from '../../../components/PlayerSearchLoader';
 import type {

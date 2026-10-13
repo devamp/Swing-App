@@ -1,6 +1,6 @@
 import { type ComponentProps, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { DocumentData, DocumentSnapshot } from 'firebase/firestore';
 import { User } from './types';
 import Theme from './theme';

@@ -18,7 +18,7 @@ import { Onboarding } from './screens/onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
 import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import Theme from '../theme';
 import { PlayMapMatchDetail, PlayMapCreateMatch } from './screens/PlayMapDetails';
 

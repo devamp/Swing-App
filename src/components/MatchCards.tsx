@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { FoundMatch } from '../services/matchService/types';
 import Theme from '../theme';

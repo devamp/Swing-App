@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { Button } from 'react-native-paper';
 import Theme from '../../theme';
 import { useNavigation } from '@react-navigation/native';

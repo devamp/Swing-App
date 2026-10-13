@@ -6,7 +6,7 @@ import {
   selectNearbyMatches,
   type SearchCenter,
 } from '../../../services/matchService/nearbyMatches';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {

@@ -1,6 +1,6 @@
 import type { StaticScreenProps } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';

@@ -1,5 +1,5 @@
 import type { StaticScreenProps } from '@react-navigation/core';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';

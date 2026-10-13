@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Theme from '../../../theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
 import { StaticScreenProps, useNavigation } from '@react-navigation/native';
 import { Button } from 'react-native-paper';
 import { OnboardingMatchPreferencesParams } from './OnboardingFlowTypes';
