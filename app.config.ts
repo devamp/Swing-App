@@ -3,14 +3,19 @@ import type { ExpoConfig } from 'expo/config';
 const config: ExpoConfig = {
   name: 'swing-app',
   slug: 'swing-app',
+  extra: {
+    eas: {
+      projectId: '9d5ee10a-e945-43ed-a444-88e3a8b68c58',
+    },
+  },
   version: '1.0.0',
   orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   scheme: 'swingapp',
   ios: {
-    supportsTablet: true,
-    bundleIdentifier: 'com.swingapp',
+    supportsTablet: false,
+    bundleIdentifier: 'com.swing.app.play',
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'We use your location to show nearby players and courts.',
