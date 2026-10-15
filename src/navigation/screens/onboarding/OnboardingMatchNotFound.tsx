@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Theme from '../../../theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { StaticScreenProps, useNavigation } from '@react-navigation/native';
 import { Button } from 'react-native-paper';
 import { OnboardingMatchPreferencesParams } from './OnboardingFlowTypes';
@@ -89,7 +89,7 @@ export function OnboardingMatchNotFound({ route }: OnboardingMatchNotFoundProps)
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.reassuranceText}>Takes less than 2 minutes</Text>
+          <Text style={styles.reassuranceText}>Takes less than a minute</Text>
 
           <View style={styles.actionContainer}>
             <Button

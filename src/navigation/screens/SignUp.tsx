@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { StaticScreenProps, useNavigation } from '@react-navigation/native';
 import { Button, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -64,7 +64,7 @@ export function SignUp({ route }: SignUpProps) {
       return authService.signUp(credentials, userPreferences);
     },
     onSuccess: (createdUser) => {
-      navigation.navigate('Home');
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     },
     onError: (error) => {
       SwingAlert.alert(
@@ -220,9 +220,6 @@ export function SignUp({ route }: SignUpProps) {
               <Text style={styles.loginLink}>Log in</Text>
             </Pressable>
           </View>
-        </View>
-        <View style={{ alignItems: 'center', padding: 20 }}>
-          <Image source={swingLogo} style={styles.logo} />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -12,7 +12,26 @@ import { userService } from './userService';
 import { SignUpCredentials } from '../types';
 import { OnboardingMatchPreferencesParams } from '../navigation/screens/onboarding/OnboardingFlowTypes';
 
+// Require a fresh login after 30 days, even if Firebase can still refresh the token.
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 class AuthService {
+  async restoreSession(): Promise<User | null> {
+    // currentUser is initially null while Firebase reads persisted credentials.
+    await Auth.authStateReady();
+    const user = Auth.currentUser;
+    if (!user) return null;
+
+    const signedInAt = Date.parse(user.metadata.lastSignInTime ?? '');
+    const sessionAge = Date.now() - signedInAt;
+    if (!Number.isFinite(signedInAt) || sessionAge < 0 || sessionAge >= SESSION_MAX_AGE_MS) {
+      await this.logout();
+      return null;
+    }
+
+    return user;
+  }
+
   async signUp(
     { username, email, password }: SignUpCredentials,
     userPreferences: OnboardingMatchPreferencesParams,

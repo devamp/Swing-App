@@ -41,7 +41,7 @@ export function Login() {
   const { mutate: logIn, isPending: isLoggingIn } = useMutation({
     mutationFn: ({ loginEmail, loginPassword }: { loginEmail: string; loginPassword: string }) =>
       authService.login(loginEmail, loginPassword),
-    onSuccess: () => navigation.navigate('Home'),
+    onSuccess: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }),
     onError: (error) => {
       SwingAlert.alert(
         'Could not log in',

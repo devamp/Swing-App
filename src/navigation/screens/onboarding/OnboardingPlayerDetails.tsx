@@ -322,7 +322,7 @@ export function OnboardingPlayerDetails({ route }: OnboardingPlayerDetailsProps)
                     size={18}
                     color={Theme.PRIMARY}
                   />
-                  <Text style={styles.dialogReassuranceText}>Takes about 2 minutes</Text>
+                  <Text style={styles.dialogReassuranceText}>Takes about a minute</Text>
                 </View>
               </Dialog.Content>
               <Dialog.Actions style={styles.dialogActions}>
