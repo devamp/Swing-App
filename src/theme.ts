@@ -2,9 +2,12 @@ import { StyleSheet } from 'react-native';
 import { MD3LightTheme } from 'react-native-paper';
 
 const COLORS = {
-  PRIMARY: '#008080',
+  PRIMARY: '#163D38',
+  PRIMARY_LIGHT: '#EBF1EF',
+  PRIMARY_BORDER: '#DCE5E1',
+  ON_PRIMARY_MUTED: '#D5E4DF',
   SECONDARY: 'lightgrey',
-  BACKGROUND: '#F4F9FF',
+  BACKGROUND: '#F5F7F2',
   SURFACE: 'white',
   TEXT: 'black',
   SUB_TEXT_COLOR: '#4A4A4A',
@@ -17,12 +20,28 @@ const paperTheme = {
     ...MD3LightTheme.colors,
     primary: COLORS.PRIMARY,
     onPrimary: COLORS.SURFACE,
+    primaryContainer: COLORS.PRIMARY_LIGHT,
+    onPrimaryContainer: COLORS.PRIMARY,
     secondary: COLORS.SECONDARY,
     onSecondary: COLORS.TEXT,
+    secondaryContainer: COLORS.PRIMARY_LIGHT,
+    onSecondaryContainer: COLORS.PRIMARY,
     background: COLORS.BACKGROUND,
     surface: COLORS.SURFACE,
     onSurface: COLORS.TEXT,
+    surfaceVariant: COLORS.PRIMARY_LIGHT,
+    onSurfaceVariant: COLORS.SUB_TEXT_COLOR,
+    inversePrimary: COLORS.ON_PRIMARY_MUTED,
     outline: COLORS.SECONDARY,
+    outlineVariant: COLORS.PRIMARY_BORDER,
+    elevation: {
+      level0: 'transparent',
+      level1: '#F3F5F5',
+      level2: '#ECEFEF',
+      level3: '#E5EAE9',
+      level4: '#E3E8E7',
+      level5: '#DEE4E3',
+    },
   },
 };
 
@@ -66,8 +85,9 @@ const styles = StyleSheet.create({
   },
 
   screenHeader: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
     color: COLORS.PRIMARY,
     marginBottom: 8,
   },

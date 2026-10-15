@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import { Animated, Easing, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 
-const SWING_GREEN = '#008080';
+import Theme from '../theme';
+import CourtBackground from './CourtBackground';
 
 type SearchPulseProps = {
   title?: string;
@@ -64,7 +66,7 @@ function PulseRing({ delay }: PulseRingProps) {
 
 export default function PlayerSearchLoader({
   title = 'Searching for players',
-  subtitle = 'Depending on the availablity, this may take a moment.',
+  subtitle = 'Finding your next match may take a moment. Hang tight!',
 }: SearchPulseProps) {
   const pinPosition = useRef(new Animated.Value(0)).current;
   const [dotCount, setDotCount] = useState(0);
@@ -99,44 +101,150 @@ export default function PlayerSearchLoader({
   }, [pinPosition]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.animationContainer}>
-        <PulseRing delay={0} />
-        <PulseRing delay={700} />
-        <PulseRing delay={1400} />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      <CourtBackground />
 
-        <View style={styles.centerGlow}>
-          <Animated.View
-            style={{
-              transform: [{ translateY: pinPosition }],
-            }}
-          >
-            <View style={styles.pinContainer}>
-              <Ionicons name="location" size={52} color={SWING_GREEN} />
-            </View>
-          </Animated.View>
+      <View style={styles.searchCard}>
+        <View style={styles.searchBadge}>
+          <MaterialCommunityIcons
+            name="map-marker-radius-outline"
+            size={16}
+            color={Theme.PRIMARY}
+          />
+          <Text style={styles.searchBadgeText}>LET’S GET YOU PLAYING</Text>
+        </View>
+        <View
+          style={styles.animationContainer}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <View style={styles.radarOuter} />
+          <View style={styles.radarInner} />
+          <View style={[styles.playerMarker, styles.playerMarkerTop]}>
+            <MaterialCommunityIcons name="account-outline" size={20} color={Theme.PRIMARY} />
+          </View>
+          <View style={[styles.playerMarker, styles.playerMarkerBottom]}>
+            <MaterialCommunityIcons name="account-outline" size={20} color={Theme.PRIMARY} />
+          </View>
+          <PulseRing delay={0} />
+          <PulseRing delay={700} />
+          <PulseRing delay={1400} />
 
-          <View style={styles.pinShadow} />
+          <View style={styles.centerGlow}>
+            <Animated.View
+              style={{
+                transform: [{ translateY: pinPosition }],
+              }}
+            >
+              <View style={styles.pinContainer}>
+                <MaterialCommunityIcons name="map-marker-outline" size={52} color={Theme.PRIMARY} />
+              </View>
+            </Animated.View>
+
+            <View style={styles.pinShadow} />
+          </View>
+        </View>
+
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>
+            {title}
+            <Text>{'.'.repeat(dotCount)}</Text>
+          </Text>
+
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
       </View>
-
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>
-          {title}
-          <Text>{'.'.repeat(dotCount)}</Text>
-        </Text>
-
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: Theme.BACKGROUND,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 32,
+    gap: 24,
+  },
+
+  searchCard: {
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+    borderRadius: 28,
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.PRIMARY,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  searchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Theme.BACKGROUND,
+  },
+  searchBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: Theme.PRIMARY,
+  },
+  radarOuter: {
+    position: 'absolute',
+    width: 196,
+    height: 196,
+    borderRadius: 98,
+    borderWidth: 1,
+    borderColor: Theme.PRIMARY,
+    opacity: 0.1,
+  },
+  radarInner: {
+    position: 'absolute',
+    width: 146,
+    height: 146,
+    borderRadius: 73,
+    backgroundColor: Theme.PRIMARY,
+    opacity: 0.04,
+  },
+  playerMarker: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.BACKGROUND,
+    borderWidth: 3,
+    borderColor: Theme.SURFACE,
+  },
+  playerMarkerTop: { top: 30, right: 24 },
+  playerMarkerBottom: { bottom: 34, left: 20 },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: 320,
+  },
+  footerText: {
+    flexShrink: 1,
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 
   animationContainer: {
@@ -152,8 +260,8 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 2,
-    borderColor: SWING_GREEN,
-    backgroundColor: 'rgba(0, 128, 128, 0.05)',
+    borderColor: Theme.PRIMARY,
+    backgroundColor: `${Theme.PRIMARY}0D`,
   },
 
   centerGlow: {
@@ -162,8 +270,8 @@ const styles = StyleSheet.create({
     borderRadius: 45,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: SWING_GREEN,
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.PRIMARY,
     shadowOffset: {
       width: 0,
       height: 6,
@@ -192,8 +300,9 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: '#0F172A',
-    fontSize: 20,
+    color: Theme.TEXT,
+    fontSize: 24,
+    lineHeight: 30,
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -201,7 +310,7 @@ const styles = StyleSheet.create({
   subtitle: {
     maxWidth: 290,
     marginTop: 8,
-    color: '#64748B',
+    color: Theme.SUB_TEXT_COLOR,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',

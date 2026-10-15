@@ -1,7 +1,8 @@
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { FoundMatch } from '../services/matchService/types';
 import Theme from '../theme';
+import UpcomingMatchArtwork from './UpcomingMatchArtwork';
 
 type MatchCardProps = {
   match: FoundMatch;
@@ -34,6 +35,7 @@ export function getRelativeDateLabel(date: Date) {
 }
 
 export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
+  const { fontScale } = useWindowDimensions();
   const startDate = match.startsAt.toDate();
   const month = new Intl.DateTimeFormat('en-US', { month: 'short' })
     .format(startDate)
@@ -44,14 +46,14 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
     minute: '2-digit',
   }).format(startDate);
   const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
-  const playersNeededLabel = `${match.playersNeeded} ${
-    match.playersNeeded === 1 ? 'player' : 'players'
-  } needed`;
+  const spots = Math.max(0, match.playersNeeded);
+  const playersNeededLabel =
+    spots > 0 ? `${spots} ${spots === 1 ? 'spot' : 'spots'} open` : 'Match full';
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`View ${match.gameType} match details`}
+      accessibilityLabel={`View upcoming match ${match.matchName}, ${sportLabel}, ${getRelativeDateLabel(startDate)} at ${startTime}, ${formatSkillLevel(match.skillLevel)}, ${match.matchCourtLocation.name}, hosting, ${playersNeededLabel}`}
       onPress={onPress}
       style={({ pressed }) => [styles.upcomingMatchCard, pressed && styles.pressed]}
     >
@@ -62,34 +64,41 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
         </View>
 
         <View style={styles.matchSummary}>
-          <View style={styles.matchTitleRow}>
-            <Text style={styles.matchTitle}>{match.matchName}</Text>
-            <View style={styles.hostingBadge}>
-              <MaterialCommunityIcons name="account-star" size={13} color={Theme.PRIMARY} />
-              <Text style={styles.hostingText}>Hosting</Text>
-            </View>
+          <Text style={styles.headerSport}>{sportLabel}</Text>
+          {match.gameType ? <Text style={styles.headerGameType}>{match.gameType}</Text> : null}
+          <View style={styles.hostingBadge}>
+            <MaterialCommunityIcons name="account-star" size={12} color={Theme.ON_PRIMARY_MUTED} />
+            <Text style={styles.hostingText}>Hosting</Text>
           </View>
-          <Text style={styles.matchSubtitle}>
-            {sportLabel} · {playersNeededLabel}
+        </View>
+        {fontScale < 1.3 ? <UpcomingMatchArtwork sport={match.sport} /> : null}
+      </View>
+
+      <View style={styles.upcomingBody}>
+        <Text style={styles.matchTitle} numberOfLines={2}>
+          {match.matchName}
+        </Text>
+        <View style={styles.detailRow}>
+          <MaterialCommunityIcons name="clock-outline" size={17} color={Theme.PRIMARY} />
+          <Text style={styles.detailText}>
+            {getRelativeDateLabel(startDate)} · {startTime} · {formatSkillLevel(match.skillLevel)}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.detailRow}>
-        <MaterialCommunityIcons name="clock-outline" size={18} color={Theme.PRIMARY} />
-        <Text style={styles.detailText}>
-          {getRelativeDateLabel(startDate)} · {startTime} · {formatSkillLevel(match.skillLevel)}
-        </Text>
-      </View>
-      <View style={styles.detailRow}>
-        <MaterialCommunityIcons name="map-marker-outline" size={18} color={Theme.PRIMARY} />
-        <Text style={styles.detailText}>{match.matchCourtLocation.name}</Text>
-      </View>
-      <View style={styles.viewDetailsRow}>
-        <Text style={styles.viewDetailsText}>View details</Text>
-        <MaterialCommunityIcons name="arrow-right" size={15} color={Theme.PRIMARY} />
+        <View style={styles.detailRow}>
+          <MaterialCommunityIcons name="map-marker-outline" size={17} color={Theme.PRIMARY} />
+          <Text style={styles.detailText} numberOfLines={2}>
+            {match.matchCourtLocation.name}
+          </Text>
+        </View>
+        <View style={styles.upcomingFooter}>
+          <View style={styles.openSpotsBadge}>
+            <Text style={styles.openSpotsText}>{playersNeededLabel}</Text>
+          </View>
+          <View style={styles.viewDetailsRow}>
+            <Text style={styles.viewDetailsText}>View details</Text>
+            <MaterialCommunityIcons name="arrow-right" size={15} color={Theme.PRIMARY} />
+          </View>
+        </View>
       </View>
     </Pressable>
   );
@@ -149,10 +158,10 @@ const styles = StyleSheet.create({
   },
   upcomingMatchCard: {
     width: '100%',
-    padding: 16,
     borderRadius: 18,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#DDEAEA',
+    borderColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: 4 },
@@ -164,7 +173,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: Theme.PRIMARY,
   },
+  headerSport: { color: Theme.SURFACE, fontSize: 15, fontWeight: '800', lineHeight: 20 },
+  headerGameType: { color: Theme.ON_PRIMARY_MUTED, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  upcomingBody: { paddingHorizontal: 14, paddingVertical: 12 },
+  upcomingFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 8,
+  },
+  openSpotsBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: Theme.PRIMARY_LIGHT,
+  },
+  openSpotsText: { color: Theme.PRIMARY, fontSize: 11, lineHeight: 16, fontWeight: '800' },
   dateBadge: {
     width: 52,
     minHeight: 58,
@@ -172,7 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   dateMonth: {
     color: Theme.PRIMARY,
@@ -188,47 +218,35 @@ const styles = StyleSheet.create({
   },
   matchSummary: {
     flex: 1,
-  },
-  matchTitleRow: {
-    flexWrap: 'wrap',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    minWidth: 0,
   },
   matchTitle: {
     flexShrink: 1,
     color: Theme.TEXT,
     fontSize: 17,
+    lineHeight: 23,
     fontWeight: '800',
-  },
-  matchSubtitle: {
-    marginTop: 4,
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 12,
+    marginBottom: 8,
   },
   hostingBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: '#FFFFFF1A',
   },
   hostingText: {
-    color: Theme.PRIMARY,
+    color: Theme.ON_PRIMARY_MUTED,
     fontSize: 10,
     fontWeight: '700',
   },
-  divider: {
-    height: 1,
-    marginVertical: 14,
-    backgroundColor: '#E7EEEE',
-  },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     marginBottom: 4,
   },
@@ -236,14 +254,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: Theme.SUB_TEXT_COLOR,
     fontSize: 13,
+    lineHeight: 19,
     fontWeight: '500',
   },
   viewDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
     gap: 3,
-    marginTop: 2,
   },
   viewDetailsText: {
     color: Theme.PRIMARY,
@@ -255,7 +272,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDEAEA',
+    borderColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: 3 },
@@ -274,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 11,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   compactHeading: {
     flex: 1,

@@ -2,6 +2,8 @@
 
 Reviewed October 11, 2026. Repository baseline: f121706 plus the existing local Profile.tsx changes.
 
+Update October 15, 2026: Play Map / FindMatches is now a "Coming soon" placeholder. Its previous UI, mock services, fixtures, and detail/create routes have been removed for a clean reimplementation. Play Map implementation references below describe the October 11 baseline; `docs/play-map.md` has also been removed.
+
 MVP SCOPE / 01
 
 ## Swing AppUpdated MVP scope

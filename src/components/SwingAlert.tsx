@@ -27,8 +27,8 @@ type AlertRequest = {
 
 const ALERT_STYLES = {
   info: {
-    backgroundColor: '#EAF5F5',
-    borderColor: '#B8DEDE',
+    backgroundColor: Theme.PRIMARY_LIGHT,
+    borderColor: Theme.PRIMARY_BORDER,
     iconColor: Theme.PRIMARY,
     icon: 'information-outline',
   },

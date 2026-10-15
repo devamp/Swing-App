@@ -51,7 +51,7 @@ export function OnboardingMatchNotFound({ route }: OnboardingMatchNotFoundProps)
         </Pressable>
 
         <View style={styles.headerContainer}>
-          <Text style={styles.header}>No matches found yet</Text>
+          <Text style={styles.header}>No matches found</Text>
           <Text style={styles.subtitle}>
             Be the first player looking to play in this area. Create a game and we’ll help others
             find you.
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     marginBottom: 10,
   },
   resultBadgeText: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   filterText: {
     color: Theme.PRIMARY,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 18,
     backgroundColor: Theme.SURFACE,
-    shadowColor: '#004C4C',
+    shadowColor: Theme.PRIMARY,
     shadowOpacity: 0.1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },

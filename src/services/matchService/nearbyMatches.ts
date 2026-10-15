@@ -16,6 +16,28 @@ export function hasCoordinates(value: { latitude?: number; longitude?: number })
   );
 }
 
+export function withViewerDistance(
+  match: FoundMatch,
+  viewerLocation: Pick<SearchCenter, 'latitude' | 'longitude'> | null,
+): FoundMatch {
+  const court = match.matchCourtLocation;
+  const coordinates = court.courtLocation ?? court;
+  let distanceMiles: number | undefined;
+
+  if (viewerLocation && hasCoordinates(viewerLocation) && hasCoordinates(coordinates)) {
+    const radians = (degrees: number) => (degrees * Math.PI) / 180;
+    const a =
+      Math.sin(radians(coordinates.latitude - viewerLocation.latitude) / 2) ** 2 +
+      Math.cos(radians(viewerLocation.latitude)) *
+        Math.cos(radians(coordinates.latitude)) *
+        Math.sin(radians(coordinates.longitude - viewerLocation.longitude) / 2) ** 2;
+    distanceMiles = 3958.8 * 2 * Math.asin(Math.sqrt(Math.min(1, a)));
+  }
+
+  // Never use a distance saved by the match creator for another viewer.
+  return { ...match, matchCourtLocation: { ...court, distanceMiles } };
+}
+
 export function selectNearbyMatches(
   matches: FoundMatch[],
   center: SearchCenter,
@@ -23,23 +45,14 @@ export function selectNearbyMatches(
   userId: string,
   now = Date.now(),
 ): FoundMatch[] {
-  const radians = (degrees: number) => (degrees * Math.PI) / 180;
   return matches
     .flatMap((match) => {
       if (match.userId === userId || match.startsAt.toMillis() < now || match.playersNeeded <= 0)
         return [];
-      const court = match.matchCourtLocation;
-      const coordinates = court.courtLocation ?? court;
-      if (!hasCoordinates(coordinates)) return [];
-      const a =
-        Math.sin(radians(coordinates.latitude - center.latitude) / 2) ** 2 +
-        Math.cos(radians(center.latitude)) *
-          Math.cos(radians(coordinates.latitude)) *
-          Math.sin(radians(coordinates.longitude - center.longitude) / 2) ** 2;
-      const distanceMiles = 3958.8 * 2 * Math.asin(Math.sqrt(Math.min(1, a)));
-      if (distanceMiles > radiusMiles) return [];
-      // Stored court distances belong to the creator's search, not this viewer.
-      return [{ ...match, matchCourtLocation: { ...court, distanceMiles } }];
+      const result = withViewerDistance(match, center);
+      const distanceMiles = result.matchCourtLocation.distanceMiles;
+      if (distanceMiles == null || distanceMiles > radiusMiles) return [];
+      return [result];
     })
     .sort(
       (a, b) =>

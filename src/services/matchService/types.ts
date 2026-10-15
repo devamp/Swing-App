@@ -1,6 +1,7 @@
 // Match service types
 import type { FieldValue, Timestamp } from 'firebase/firestore';
 import { CourtLocation, SkillLevel, Sport } from '../../types';
+import { SportPreference } from '../../navigation/screens/onboarding/OnboardingFlowTypes';
 
 export type CreateMatchForm = {
   sport: Sport | null;
@@ -38,6 +39,8 @@ export type DBMatch = {
   playersNeeded: number;
   note: string;
   matchName: string;
+  members: string[];
+  hostName: string;
   createdAt: FieldValue;
   updatedAt: FieldValue;
 };
@@ -48,4 +51,5 @@ export type FoundMatch = DBMatch & {
 
 export type FindMatchFilter = {
   isOpenMatchesSearch: boolean;
+  sport: SportPreference;
 };

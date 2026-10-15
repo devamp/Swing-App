@@ -1,6 +1,6 @@
 import type { StaticScreenProps } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
@@ -72,6 +72,7 @@ export function OnboardingPlayerDetails({ route }: OnboardingPlayerDetailsProps)
     playTime,
     playerStatus,
     skillLevel,
+    members,
   } = matchDetails;
   const [userLocation, setUserLocation] = useState<MapCoordinate | null>(null);
   const [isInterested, setIsInterested] = useState(false);
@@ -128,7 +129,7 @@ export function OnboardingPlayerDetails({ route }: OnboardingPlayerDetailsProps)
 
   const handleViewLocation = () => {
     const query = encodeURIComponent(`${initialRegion.latitude},${initialRegion.longitude}`);
-    void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+    void Linking.openURL(`https://maps.apple.com/?q=${query}`);
   };
 
   const showDialog = () => setIsDialogVisible(true);
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#E3F3F3',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     marginBottom: 10,
   },
   sportBadgeText: {
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: Theme.SURFACE,
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -474,7 +475,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     marginBottom: 12,
   },
   infoLabel: {
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: Theme.SURFACE,
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     marginTop: 12,
     marginBottom: 28,
   },
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 5,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   hostBadgeText: {
     color: Theme.PRIMARY,
@@ -584,7 +585,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     marginBottom: 12,
   },
   map: {
@@ -620,7 +621,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: Theme.SURFACE,
     borderTopWidth: 1,
-    borderTopColor: '#E4ECEC',
+    borderTopColor: Theme.PRIMARY_BORDER,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.SURFACE,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
   },
   dialogContent: {
     alignItems: 'center',
@@ -692,7 +693,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#F0F8F8',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   dialogReassuranceText: {
     color: Theme.PRIMARY,

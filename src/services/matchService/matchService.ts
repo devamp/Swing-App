@@ -18,8 +18,6 @@ import {
 } from 'firebase/firestore';
 import { CreateMatchParams, DBMatch, FindMatchFilter, FoundMatch } from './types';
 import { authService } from '../authService';
-import { userService } from '../userService';
-import { PlayerProfileUpdate } from '../../types';
 
 const discoverableMatchesQuery = () =>
   query(collection(Database, 'Matches'), where('startsAt', '>=', Timestamp.now()));
@@ -30,7 +28,7 @@ class MatchService {
       const authUser = authService.getCurrentUser();
       if (!authUser) throw new Error('Could not retrieve auth user');
 
-      const { uid } = authUser;
+      const { uid, displayName } = authUser;
       const { sport, location, startsAt, skillLevel, gameType, playersNeeded, note, matchName } =
         createMatchParams;
 
@@ -55,6 +53,8 @@ class MatchService {
         playersNeeded,
         note: note.trim(),
         matchName: matchName.trim() || `${authUser.displayName}'s Match`,
+        members: [],
+        hostName: displayName ?? '?',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -148,18 +148,22 @@ class MatchService {
     size?: number;
   } = {}): Promise<FoundMatch[]> {
     try {
-      const isOpenMatchesSearch = filter?.isOpenMatchesSearch;
+      const { isOpenMatchesSearch, sport } = filter ?? ({} as Partial<FindMatchFilter>);
       const collectionRef = collection(Database, 'Matches');
 
       let querySnapshot;
-      let matchesQuery;
+      let matchesQuery = query(collectionRef, limit(size));
+
+      // Filter checks
       if (isOpenMatchesSearch) {
         const authUser = authService.getCurrentUser();
         if (!authUser) throw new Error('Could not retrieve auth user');
 
         matchesQuery = query(collectionRef, limit(size), where('userId', '!=', authUser.uid));
-      } else {
-        matchesQuery = query(collectionRef, limit(size));
+      }
+
+      if (sport && sport !== 'Both') {
+        matchesQuery = query(collectionRef, limit(size), where('sport', '==', sport.toLowerCase()));
       }
 
       querySnapshot = await getDocs(matchesQuery);
@@ -179,6 +183,8 @@ class MatchService {
             updatedAt,
             matchCourtLocation,
             matchName,
+            members,
+            hostName,
           } = doc.data();
 
           matches.push({
@@ -194,6 +200,8 @@ class MatchService {
             updatedAt,
             matchCourtLocation,
             matchName,
+            members,
+            hostName,
           });
         });
       }

@@ -1,10 +1,20 @@
 import type { StaticScreenProps } from '@react-navigation/core';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
+import {
+  Animated,
+  Easing,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Platform,
+  Pressable,
+} from 'react-native';
 import Theme from '../../../theme';
-import { useRef, useState } from 'react';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
-import { useNavigation } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Location from 'expo-location';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
+import { StackActions, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import PlayerSearchLoader from '../../../components/PlayerSearchLoader';
 import type {
   OnboardingMatchedPlayerDetails,
@@ -15,6 +25,7 @@ import { getPlayerInitials } from '../../../utils';
 import { useQuery } from '@tanstack/react-query';
 import { matchService } from '../../../services';
 import type { DBMatch } from '../../../services/matchService/types';
+import { withViewerDistance } from '../../../services/matchService/nearbyMatches';
 
 export type OnboardingMatchedPlayersParams = OnboardingMatchPreferencesParams;
 
@@ -116,7 +127,7 @@ function toPlayerDetails(
 
   return {
     id: getMatchId(match),
-    name: match.userId,
+    name: match.hostName,
     sport: getSportLabel(match),
     matchDetails: {
       ...coordinate,
@@ -137,29 +148,127 @@ function toPlayerDetails(
   };
 }
 
+function BreathingStatusDot() {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+          isInteraction: false,
+        }),
+        Animated.timing(progress, {
+          toValue: 0,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+          isInteraction: false,
+        }),
+      ]),
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.statusDot,
+        {
+          opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
+          transform: [
+            { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.2] }) },
+          ],
+        },
+      ]}
+    />
+  );
+}
+
 export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProps) {
+  const { key: routeKey } = useRoute();
   const sport = route.params.selectedSport;
   const searchArea = route.params.searchCriteria;
   const navigation = useNavigation();
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<Pick<Region, 'latitude' | 'longitude'> | null>(
+    null,
+  );
   const mapRef = useRef<MapView>(null);
   const params = {
     ...route.params,
   };
 
-  const { data: matches = [], isLoading } = useQuery<DBMatch[]>({
-    queryKey: ['findNearbyMatches'],
-    queryFn: async () => {
-      const matches = await matchService.findMatches();
-      console.log(matches);
-
-      if (!matches.length) {
-        navigation.navigate('OnboardingMatchNotFound', route.params);
-      }
-
-      return matches;
-    },
+  const {
+    data: storedMatches,
+    isPending,
+    isFetching,
+    isSuccess,
+    isError,
+    refetch,
+  } = useQuery<DBMatch[]>({
+    queryKey: ['findNearbyMatches', routeKey, route.params],
+    queryFn: () => matchService.findMatches({ filter: { sport } }),
+    gcTime: 0,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let subscription: Location.LocationSubscription | undefined;
+      setUserLocation(null);
+
+      const watchLocation = async () => {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          if (!active || !permission.granted) return;
+
+          subscription = await Location.watchPositionAsync(
+            { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
+            ({ coords }) => {
+              if (active) {
+                setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+              }
+            },
+            () => {
+              if (active) setUserLocation(null);
+            },
+          );
+          if (!active) subscription.remove();
+        } catch {
+          if (active) setUserLocation(null);
+        }
+      };
+
+      void watchLocation();
+      return () => {
+        active = false;
+        subscription?.remove();
+      };
+    }, []),
+  );
+
+  const matches = useMemo(
+    () => (storedMatches ?? []).map((match) => withViewerDistance(match, userLocation)),
+    [storedMatches, userLocation],
+  );
+
+  useEffect(() => {
+    if (isSuccess && !matches.length) {
+      navigation.dispatch(StackActions.replace('OnboardingMatchNotFound', route.params));
+    }
+  }, [isSuccess, matches.length, navigation, route.params]);
+
+  // Keep the loader visible while an empty result transitions to the no-matches screen.
+  const showLoader = isPending || isFetching || (isSuccess && !matches.length);
 
   const mapCenter =
     searchArea.type === 'Current' && searchArea.latitude != null && searchArea.longitude != null
@@ -190,10 +299,25 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
   };
 
   return (
-    <SafeAreaView style={Theme.styles.appContainer}>
-      {isLoading ? (
+    <SafeAreaView style={Theme.styles.appContainer} edges={showLoader ? [] : undefined}>
+      {showLoader ? (
         <View style={styles.loadingContainer}>
           <PlayerSearchLoader />
+        </View>
+      ) : isError ? (
+        <View style={styles.searchError}>
+          <Text style={styles.sectionTitle}>Couldn’t load matches</Text>
+          <Text style={styles.loadingText}>Please try your search again.</Text>
+          <Pressable
+            onPress={() => void refetch()}
+            accessibilityRole="button"
+            style={Theme.styles.rowButton}
+          >
+            <Text style={styles.filterText}>Try again</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button">
+            <Text style={styles.filterText}>Back to preferences</Text>
+          </Pressable>
         </View>
       ) : (
         <ScrollView
@@ -213,7 +337,7 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
 
           <View style={styles.hero}>
             <View style={styles.resultBadge}>
-              <View style={styles.statusDot} />
+              <BreathingStatusDot />
               <Text style={styles.resultBadgeText}>{matches.length} matches found</Text>
             </View>
             <Text style={styles.screenTitle}>
@@ -278,7 +402,7 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
                           selectedMatchId === matchId && styles.selectedPlayerMarkerText,
                         ]}
                       >
-                        {getPlayerInitials(match.userId)}
+                        {getPlayerInitials(match.hostName)}
                       </Text>
                     </View>
                   </Marker>
@@ -319,7 +443,7 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
                   <Text
                     style={[styles.playerAvatarText, isSelected && styles.selectedPlayerAvatarText]}
                   >
-                    {getPlayerInitials(match.userId)}
+                    {getPlayerInitials(match.hostName)}
                   </Text>
                 </View>
 
@@ -436,7 +560,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   filterText: {
     color: Theme.PRIMARY,
@@ -448,7 +572,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -481,7 +605,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     borderWidth: 3,
     borderColor: Theme.SURFACE,
-    backgroundColor: '#DCECEC',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Theme.TEXT,
@@ -510,7 +634,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-start',
@@ -529,8 +653,15 @@ const styles = StyleSheet.create({
   },
 
   loadingContainer: {
+    flex: 1,
+    width: '100%',
+  },
+
+  searchError: {
+    width: '100%',
+    padding: 24,
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
 
   loadingText: {
@@ -543,7 +674,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.SURFACE,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     padding: 15,
     marginBottom: 12,
     flexDirection: 'row',
@@ -557,7 +688,7 @@ const styles = StyleSheet.create({
   },
 
   selectedMatchCard: {
-    backgroundColor: '#F0F8F8',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     borderColor: Theme.PRIMARY,
     borderWidth: 2,
     padding: 14,
@@ -586,7 +717,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   sportBadgeText: {
     color: Theme.PRIMARY,
@@ -639,7 +770,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F0F8F8',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   skillText: {
     color: Theme.PRIMARY,
@@ -654,7 +785,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   selectedChevronContainer: {
     backgroundColor: Theme.PRIMARY,

@@ -45,6 +45,7 @@ export type MatchDetails = {
   playDate?: string;
   playerStatus?: 'Confirmed' | 'Pending';
   skillLevel: SkillLevel;
+  members?: string[],
   locationName?: string;
   playTime?: string;
 };

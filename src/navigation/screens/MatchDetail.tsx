@@ -1,14 +1,31 @@
 import type { StaticScreenProps } from '@react-navigation/core';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
+import * as Location from 'expo-location';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import MapView, { Marker, type LatLng } from 'react-native-maps';
 import { ActivityIndicator, Button } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import CourtBackground from '../../components/CourtBackground';
 import { formatSkillLevel, getRelativeDateLabel } from '../../components/MatchCards';
 import { matchService } from '../../services';
 import { authService } from '../../services/authService';
+import { hasCoordinates, withViewerDistance } from '../../services/matchService/nearbyMatches';
+import type { FoundMatch } from '../../services/matchService/types';
 import Theme from '../../theme';
+import { getPlayerInitials } from '../../utils';
 
 type MatchDetailProps = StaticScreenProps<{ matchId: string }>;
 
@@ -16,6 +33,8 @@ export function MatchDetail({ route }: MatchDetailProps) {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { matchId } = route.params;
+  const [previewJoinedMatchId, setPreviewJoinedMatchId] = useState<string | null>(null);
+  const mockJoined = previewJoinedMatchId === matchId;
   const {
     data: match,
     isLoading,
@@ -63,9 +82,9 @@ export function MatchDetail({ route }: MatchDetailProps) {
   };
 
   return (
-    <SafeAreaView style={Theme.styles.appContainer}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
-        style={Theme.styles.scrollView}
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -103,106 +122,469 @@ export function MatchDetail({ route }: MatchDetailProps) {
             <Text style={styles.stateTitle}>This match is no longer available.</Text>
           </View>
         ) : (
-          <View style={styles.detailCard}>
-            <View style={styles.titleRow}>
-              <View style={styles.sportIcon}>
-                <MaterialCommunityIcons
-                  name={match.sport === 'tennis' ? 'tennis' : 'table-tennis'}
-                  size={28}
-                  color={Theme.PRIMARY}
-                />
-              </View>
-              <View style={styles.titleCopy}>
-                <Text style={styles.matchTitle}>{match.matchName}</Text>
-                <Text style={styles.matchSubtitle}>
-                  {match.sport === 'tennis' ? 'Tennis' : 'Pickleball'} match
-                </Text>
-              </View>
-            </View>
-            {match.userId === authService.getCurrentUser()?.uid ? (
-              <View style={styles.hostingContainer}>
-                <View style={styles.hostingBadge}>
-                  <MaterialCommunityIcons name="account-star" size={16} color={Theme.PRIMARY} />
-                  <Text style={styles.hostingText}>Hosted by you</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete match"
-                  accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
-                  disabled={isDeleting}
-                  onPress={confirmDeleteMatch}
-                  style={({ pressed }) => [
-                    styles.deleteHostMatchBadge,
-                    (pressed || isDeleting) && styles.pressed,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="trash-can-outline"
-                    size={16}
-                    color="#B54747"
-                  />
-                  <Text style={styles.deleteHostMatchText}>
-                    {isDeleting ? 'Deleting…' : 'Delete'}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            <View style={styles.divider} />
-
-            <DetailRow
-              icon="calendar-outline"
-              label={`${getRelativeDateLabel(match.startsAt.toDate())} · ${new Intl.DateTimeFormat(
-                'en-US',
-                { weekday: 'long', month: 'long', day: 'numeric' },
-              ).format(match.startsAt.toDate())}`}
-            />
-            <DetailRow
-              icon="clock-outline"
-              label={new Intl.DateTimeFormat('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-              }).format(match.startsAt.toDate())}
-            />
-            <DetailRow icon="signal-cellular-2" label={formatSkillLevel(match.skillLevel)} />
-            <DetailRow
-              icon="account-group-outline"
-              label={`${match.playersNeeded} ${match.playersNeeded === 1 ? 'spot' : 'spots'} available`}
-            />
-            <DetailRow icon="map-marker-outline" label={match.matchCourtLocation.name} />
-            {match.matchCourtLocation.address ? (
-              <Text style={styles.address}>{match.matchCourtLocation.address}</Text>
-            ) : null}
-
-            {match.note ? (
-              <View style={styles.noteSection}>
-                <Text style={styles.noteHeading}>Host note</Text>
-                <Text style={styles.noteText}>{match.note}</Text>
-              </View>
-            ) : null}
-          </View>
+          <MatchInformation
+            key={match.id}
+            match={match}
+            mockJoined={mockJoined}
+            isHost={match.userId === authService.getCurrentUser()?.uid}
+            isDeleting={isDeleting}
+            onDelete={confirmDeleteMatch}
+          />
         )}
       </ScrollView>
+      {match && !isLoading && !isError ? (
+        <JoinMatchFooter
+          match={match}
+          mockJoined={mockJoined}
+          onJoin={() => setPreviewJoinedMatchId(matchId)}
+        />
+      ) : null}
     </SafeAreaView>
+  );
+}
+
+function MatchInformation({
+  match,
+  mockJoined,
+  isHost,
+  isDeleting,
+  onDelete,
+}: {
+  match: FoundMatch;
+  mockJoined: boolean;
+  isHost: boolean;
+  isDeleting: boolean;
+  onDelete: () => void;
+}) {
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadLocation = async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (!permission.granted || !active) return;
+        const { coords } = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (active) setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+      } catch {
+        // The court map remains available when device location is unavailable.
+      }
+    };
+    void loadLocation();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const court = match.matchCourtLocation;
+  const rawCoordinate = {
+    latitude: court.courtLocation?.latitude ?? court.latitude,
+    longitude: court.courtLocation?.longitude ?? court.longitude,
+  };
+  const coordinate = hasCoordinates(rawCoordinate) ? rawCoordinate : null;
+  const distance = withViewerDistance(match, userLocation).matchCourtLocation.distanceMiles;
+  const startDate = match.startsAt.toDate();
+  const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
+  const hostName = match.hostName?.trim() || 'Match host';
+  const joinedCount =
+    new Set((match.members ?? []).filter((id) => id !== match.userId)).size + Number(mockJoined);
+  const spots = Math.max(0, match.playersNeeded - Number(mockJoined));
+  const hasStarted = startDate.getTime() <= Date.now();
+  const statusLabel = mockJoined
+    ? 'Joined · preview'
+    : hasStarted
+      ? 'Match started'
+      : spots > 0
+        ? 'Open match'
+        : 'Match full';
+  const courtTypeLabel = {
+    public_outdoor: 'Public outdoor',
+    public_indoor: 'Public indoor',
+    private: 'Private court',
+    unknown: 'Not specified',
+  }[court.courtType ?? 'unknown'];
+
+  const openDirections = async () => {
+    const destination = coordinate
+      ? `${coordinate.latitude},${coordinate.longitude}`
+      : [court.name, court.address].filter(Boolean).join(', ');
+    const query = encodeURIComponent(destination);
+    const url =
+      Platform.OS === 'ios'
+        ? `https://maps.apple.com/?daddr=${query}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Could not open maps', 'Please try again.');
+    }
+  };
+
+  return (
+    <View style={styles.sections}>
+      <View style={styles.hero}>
+        <CourtBackground variant="card" />
+        <View style={styles.heroTopRow}>
+          <View style={styles.sportBadge}>
+            <MaterialCommunityIcons
+              name={match.sport === 'tennis' ? 'tennis' : 'table-tennis'}
+              size={18}
+              color={Theme.SURFACE}
+            />
+            <Text style={styles.sportText}>{sportLabel}</Text>
+          </View>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>{statusLabel}</Text>
+          </View>
+        </View>
+        <Text style={styles.matchTitle}>{match.matchName}</Text>
+        <View style={styles.heroLocation}>
+          <MaterialCommunityIcons name="map-marker-outline" size={18} color={Theme.ON_PRIMARY_MUTED} />
+          <Text style={styles.heroSubtitle}>{court.name}</Text>
+        </View>
+        <View style={styles.heroTags}>
+          <View style={styles.heroTag}>
+            <MaterialCommunityIcons name="trophy-outline" size={14} color={Theme.ON_PRIMARY_MUTED} />
+            <Text style={styles.heroTagText}>{match.gameType || sportLabel}</Text>
+          </View>
+          <View style={styles.heroTag}>
+            <MaterialCommunityIcons name="trending-up" size={14} color={Theme.ON_PRIMARY_MUTED} />
+            <Text style={styles.heroTagText}>{formatSkillLevel(match.skillLevel)}</Text>
+          </View>
+        </View>
+        <View style={styles.scheduleCard}>
+          <View style={styles.dateBadge}>
+            <Text style={styles.dateMonth}>
+              {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(startDate).toUpperCase()}
+            </Text>
+            <Text style={styles.dateDay}>{startDate.getDate()}</Text>
+          </View>
+          <View style={styles.flexCopy}>
+            <Text style={styles.eyebrow}>{getRelativeDateLabel(startDate)}</Text>
+            <Text style={styles.scheduleDate}>
+              {new Intl.DateTimeFormat('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              }).format(startDate)}
+            </Text>
+            <View style={styles.inlineRow}>
+              <MaterialCommunityIcons name="clock-outline" size={16} color={Theme.ON_PRIMARY_MUTED} />
+              <Text style={styles.timeText}>
+                {new Intl.DateTimeFormat('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }).format(startDate)}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.heroHost}>
+          <View style={styles.heroHostAvatar}>
+            <Text style={styles.heroHostInitials}>{getPlayerInitials(hostName) || '?'}</Text>
+          </View>
+          <Text style={styles.heroCaption}>
+            {isHost ? 'You’re hosting this match' : `Hosted by ${hostName}`}
+          </Text>
+        </View>
+      </View>
+
+      <View>
+        <Text style={styles.sectionTitle}>The game plan</Text>
+        <View style={[styles.card, styles.detailsCard]}>
+          <DetailRow
+            icon="trending-up"
+            label="Skill level"
+            value={formatSkillLevel(match.skillLevel)}
+          />
+          <DetailRow
+            icon="trophy-outline"
+            label="Game type"
+            value={match.gameType || 'Not specified'}
+          />
+          <DetailRow icon="texture-box" label="Court type" value={courtTypeLabel} />
+          <DetailRow
+            icon="account-group-outline"
+            label="Availability"
+            value={
+              hasStarted
+                ? 'Match started'
+                : spots > 0
+                  ? `${spots} ${spots === 1 ? 'spot' : 'spots'} open`
+                  : 'No open spots'
+            }
+            last
+          />
+        </View>
+      </View>
+
+      <View>
+        <Text style={styles.sectionTitle}>Meet at the court</Text>
+        <View style={[styles.card, styles.venueCard]}>
+          {coordinate ? (
+            <MapView
+              key={`${match.id}-${coordinate.latitude}-${coordinate.longitude}`}
+              style={styles.map}
+              initialRegion={{ ...coordinate, latitudeDelta: 0.015, longitudeDelta: 0.015 }}
+              showsUserLocation={userLocation !== null}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={false}
+              loadingEnabled
+              loadingIndicatorColor={Theme.PRIMARY}
+              accessibilityLabel={`Map showing ${court.name}`}
+            >
+              <Marker
+                coordinate={coordinate}
+                title={court.name}
+                description={court.address}
+                pinColor={Theme.PRIMARY}
+              />
+            </MapView>
+          ) : (
+            <View style={styles.mapFallback}>
+              <MaterialCommunityIcons
+                name="map-marker-question-outline"
+                size={30}
+                color={Theme.PRIMARY}
+              />
+              <Text style={styles.secondaryText}>Map preview unavailable</Text>
+              <Text style={styles.fallbackHint}>Search for this court using directions below.</Text>
+            </View>
+          )}
+          <View style={styles.venueCopy}>
+            <Text style={styles.venueName}>{court.name}</Text>
+            {court.address ? <Text style={styles.secondaryText}>{court.address}</Text> : null}
+            {distance != null ? (
+              <View style={styles.inlineRow}>
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={16}
+                  color={Theme.PRIMARY}
+                />
+                <Text style={styles.distanceText}>{distance.toFixed(1)} mi away</Text>
+              </View>
+            ) : null}
+            <Button
+              mode="outlined"
+              icon="directions"
+              onPress={() => void openDirections()}
+              textColor={Theme.PRIMARY}
+              style={styles.directionsButton}
+              contentStyle={styles.buttonContent}
+              accessibilityLabel={`Get directions to ${court.name}`}
+            >
+              Get directions
+            </Button>
+          </View>
+        </View>
+      </View>
+
+      <View>
+        <View style={styles.sectionHeadingRow}>
+          <Text style={[styles.sectionTitle, styles.noBottomMargin]}>Who’s playing</Text>
+          <Text style={styles.playerCount}>
+            {joinedCount + 1} {joinedCount === 0 ? 'player' : 'players'}
+          </Text>
+        </View>
+        <View style={[styles.card, styles.playersCard]}>
+          <View style={styles.playerRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getPlayerInitials(hostName) || '?'}</Text>
+            </View>
+            <View style={styles.flexCopy}>
+              <Text style={styles.playerName}>
+                {hostName}
+                {isHost ? ' (you)' : ''}
+              </Text>
+              <Text style={styles.playerRole}>Match host</Text>
+            </View>
+            <View style={styles.hostBadge}>
+              <MaterialCommunityIcons name="account-star-outline" size={15} color={Theme.PRIMARY} />
+              <Text style={styles.hostText}>HOST</Text>
+            </View>
+          </View>
+          {mockJoined ? (
+            <View style={styles.rosterSummary} accessibilityLiveRegion="polite">
+              <MaterialCommunityIcons name="check-circle-outline" size={20} color={Theme.PRIMARY} />
+              <Text style={styles.distanceText}>You joined · preview only</Text>
+            </View>
+          ) : null}
+          {joinedCount > 0 ? (
+            <View style={styles.rosterSummary}>
+              <MaterialCommunityIcons
+                name="account-check-outline"
+                size={20}
+                color={Theme.PRIMARY}
+              />
+              <Text style={styles.secondaryText}>
+                {joinedCount} {joinedCount === 1 ? 'player has' : 'players have'} joined
+              </Text>
+            </View>
+          ) : null}
+          {!hasStarted && spots > 0 ? (
+            <View style={styles.rosterSummary}>
+              <MaterialCommunityIcons name="account-plus-outline" size={20} color={Theme.PRIMARY} />
+              <Text style={styles.secondaryText}>
+                Looking for {spots} more {spots === 1 ? 'player' : 'players'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      {match.note?.trim() ? (
+        <View style={styles.noteSection}>
+          <View style={styles.inlineRow}>
+            <MaterialCommunityIcons name="message-text-outline" size={19} color={Theme.PRIMARY} />
+            <Text style={styles.noteHeading}>A note from the host</Text>
+          </View>
+          <Text style={styles.noteText}>{match.note}</Text>
+        </View>
+      ) : null}
+
+      {isHost ? (
+        <Button
+          mode="text"
+          icon="trash-can-outline"
+          loading={isDeleting}
+          disabled={isDeleting}
+          onPress={onDelete}
+          textColor="#B54747"
+          contentStyle={styles.buttonContent}
+          accessibilityLabel="Delete match"
+          accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
+        >
+          {isDeleting ? 'Deleting…' : 'Delete match'}
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
+function JoinMatchFooter({
+  match,
+  mockJoined,
+  onJoin,
+}: {
+  match: FoundMatch;
+  mockJoined: boolean;
+  onJoin: () => void;
+}) {
+  const { width, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isCompact = width - insets.left - insets.right < 380 || fontScale >= 1.3;
+  const userId = authService.getCurrentUser()?.uid;
+  const isHost = match.userId === userId;
+  const isMember = (match.members ?? []).includes(userId ?? '');
+  const hasStarted = match.startsAt.toMillis() <= Date.now();
+  const isFull = match.playersNeeded <= 0;
+  const canJoin = !isHost && !isMember && !mockJoined && !hasStarted && !isFull;
+  const title = isHost
+    ? 'You’re hosting'
+    : mockJoined
+      ? 'You’re in!'
+      : isMember
+        ? 'You’re on the list'
+        : hasStarted
+          ? 'Match has started'
+          : isFull
+            ? 'This match is full'
+            : 'Ready to play?';
+  const buttonLabel = isHost
+    ? 'Your match'
+    : mockJoined || isMember
+      ? 'Joined'
+      : hasStarted
+        ? 'Joining closed'
+        : isFull
+          ? 'Match full'
+          : 'Join match';
+
+  return (
+    <View style={[styles.joinFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={styles.joinFooterContent}>
+        <View style={[styles.joinFooterRow, isCompact && styles.joinFooterStack]}>
+          <View
+            style={[styles.joinCopy, isCompact && styles.joinCopyStack]}
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={styles.joinTitle}>{title}</Text>
+            <Text style={styles.joinSubtitle}>
+              {isHost || isMember
+                ? 'See you at the court.'
+                : mockJoined
+                  ? 'Demo join complete.'
+                  : canJoin
+                    ? `${match.playersNeeded} ${match.playersNeeded === 1 ? 'spot' : 'spots'} available`
+                    : 'Explore other matches to play.'}
+            </Text>
+          </View>
+          <Button
+            mode="contained"
+            icon={
+              isHost
+                ? 'account-star-outline'
+                : mockJoined || isMember
+                  ? 'check-circle-outline'
+                  : 'account-plus-outline'
+            }
+            onPress={onJoin}
+            disabled={!canJoin}
+            buttonColor={Theme.PRIMARY}
+            textColor={Theme.SURFACE}
+            style={[
+              styles.joinButton,
+              isCompact && styles.joinButtonFullWidth,
+              mockJoined && styles.joinedButton,
+            ]}
+            labelStyle={mockJoined ? styles.joinedLabel : styles.joinButtonLabel}
+            contentStyle={styles.joinButtonContent}
+            accessibilityLabel={canJoin ? 'Join match preview' : buttonLabel}
+            accessibilityState={{ disabled: !canJoin }}
+          >
+            {buttonLabel}
+          </Button>
+        </View>
+        {canJoin || mockJoined ? (
+          <Text style={styles.previewCaption}>Preview only · no real spot is reserved</Text>
+        ) : null}
+      </View>
+    </View>
   );
 }
 
 function DetailRow({
   icon,
   label,
+  value,
+  last = false,
 }: {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   label: string;
+  value: string;
+  last?: boolean;
 }) {
   return (
-    <View style={styles.detailRow}>
-      <MaterialCommunityIcons name={icon} size={19} color={Theme.PRIMARY} />
-      <Text style={styles.detailText}>{label}</Text>
+    <View style={[styles.detailRow, !last && styles.detailDivider]}>
+      <View style={styles.detailIcon}>
+        <MaterialCommunityIcons name={icon} size={20} color={Theme.PRIMARY} />
+      </View>
+      <View style={styles.flexCopy}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Theme.BACKGROUND },
+  scrollView: { flex: 1 },
   content: {
     flexGrow: 1,
     paddingHorizontal: 20,
@@ -222,20 +604,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E4ECEC',
+    borderColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  headerTitle: {
-    color: Theme.PRIMARY,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  headerSpacer: {
-    width: 42,
-  },
+  pressed: { opacity: 0.7 },
+  headerTitle: { color: Theme.PRIMARY, fontSize: 20, fontWeight: '800' },
+  headerSpacer: { width: 42 },
   centerState: {
     flex: 1,
     alignItems: 'center',
@@ -249,130 +623,212 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  detailCard: {
-    padding: 18,
-    borderRadius: 18,
+  sections: { gap: 24 },
+  hero: {
+    padding: 22,
+    borderRadius: 24,
+    backgroundColor: Theme.PRIMARY,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#DDEAEA',
-    backgroundColor: Theme.SURFACE,
-    shadowColor: Theme.TEXT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 1,
+    borderColor: Theme.PRIMARY,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-  },
-  sportIcon: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: '#EAF5F5',
-  },
-  titleCopy: {
-    flex: 1,
-  },
-  matchTitle: {
-    color: Theme.TEXT,
-    fontSize: 19,
-    fontWeight: '800',
-  },
-  matchSubtitle: {
-    marginTop: 2,
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 12,
-  },
-  hostingContainer: {
+  heroTopRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    marginTop: 16,
+    marginBottom: 18,
   },
-  hostingBadge: {
+  sportBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF1A',
     borderWidth: 1,
-    borderColor: '#DDEAEA',
-    backgroundColor: '#EAF5F5',
+    borderColor: '#FFFFFF26',
   },
-  hostingText: {
-    color: Theme.PRIMARY,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
+  sportText: { color: Theme.SURFACE, fontSize: 14, fontWeight: '700' },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
   },
-  deleteHostMatchBadge: {
+  statusText: { color: Theme.PRIMARY, fontSize: 11, fontWeight: '800' },
+  matchTitle: { color: Theme.SURFACE, fontSize: 28, lineHeight: 35, fontWeight: '800' },
+  heroLocation: { flexDirection: 'row', alignItems: 'flex-start', gap: 5, marginTop: 10 },
+  heroSubtitle: { flex: 1, color: Theme.ON_PRIMARY_MUTED, fontSize: 14, lineHeight: 20 },
+  heroTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16, marginBottom: 20 },
+  heroTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: `${Theme.PRIMARY}99`,
+  },
+  heroTagText: { flexShrink: 1, color: Theme.ON_PRIMARY_MUTED, fontSize: 12, fontWeight: '600' },
+  heroHost: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 16 },
+  heroHostAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF20',
     borderWidth: 1,
-    borderColor: '#F2DADA',
-    backgroundColor: '#FFF4F4',
+    borderColor: '#FFFFFF40',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteHostMatchText: {
-    color: '#B54747',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
+  heroHostInitials: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  heroCaption: { flex: 1, color: Theme.ON_PRIMARY_MUTED, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  card: {
+    backgroundColor: Theme.SURFACE,
+    borderWidth: 1,
+    borderColor: Theme.PRIMARY_BORDER,
+    borderRadius: 20,
   },
-  divider: {
-    height: 1,
-    marginVertical: 17,
-    backgroundColor: '#E7EEEE',
-  },
-  detailRow: {
+  scheduleCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    backgroundColor: `${Theme.PRIMARY}B3`,
+    borderWidth: 1,
+    borderColor: '#FFFFFF26',
+    borderRadius: 16,
+  },
+  dateBadge: {
+    minWidth: 62,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: Theme.PRIMARY_LIGHT,
+  },
+  dateMonth: { color: Theme.PRIMARY, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  dateDay: { color: Theme.PRIMARY, fontSize: 30, lineHeight: 38, fontWeight: '800' },
+  flexCopy: { flex: 1, minWidth: 0 },
+  eyebrow: { color: Theme.ON_PRIMARY_MUTED, fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  scheduleDate: {
+    color: Theme.SURFACE,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 23,
+    marginBottom: 6,
+  },
+  inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  timeText: { flexShrink: 1, color: Theme.ON_PRIMARY_MUTED, fontSize: 14, fontWeight: '600' },
+  sectionTitle: { color: Theme.TEXT, fontSize: 19, fontWeight: '800', marginBottom: 12 },
+  detailsCard: { paddingHorizontal: 18 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14 },
+  detailDivider: { borderBottomWidth: 1, borderBottomColor: Theme.PRIMARY_BORDER },
+  detailIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.PRIMARY_LIGHT,
+  },
+  detailLabel: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, marginBottom: 3 },
+  detailValue: { color: Theme.TEXT, fontSize: 15, fontWeight: '700', lineHeight: 21 },
+  venueCard: { overflow: 'hidden' },
+  map: { width: '100%', height: 210 },
+  mapFallback: {
+    minHeight: 160,
+    padding: 24,
+    gap: 8,
+    backgroundColor: Theme.PRIMARY_LIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackHint: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  venueCopy: { padding: 18, gap: 8 },
+  venueName: { color: Theme.TEXT, fontSize: 17, fontWeight: '800', lineHeight: 23 },
+  secondaryText: { flexShrink: 1, color: Theme.SUB_TEXT_COLOR, fontSize: 13, lineHeight: 20 },
+  distanceText: { color: Theme.PRIMARY, fontSize: 13, fontWeight: '600' },
+  directionsButton: { marginTop: 6, borderRadius: 12, borderColor: Theme.PRIMARY_BORDER },
+  buttonContent: { minHeight: 46 },
+  sectionHeadingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 12,
+  },
+  noBottomMargin: { marginBottom: 0 },
+  playerCount: { color: Theme.PRIMARY, fontSize: 12, fontWeight: '700' },
+  playersCard: { padding: 18 },
+  playerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: Theme.PRIMARY_LIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: Theme.PRIMARY, fontSize: 16, fontWeight: '800' },
+  playerName: { color: Theme.TEXT, fontSize: 15, lineHeight: 21, fontWeight: '700' },
+  playerRole: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, marginTop: 3 },
+  hostBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hostText: { color: Theme.PRIMARY, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  rosterSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 9,
-    marginBottom: 13,
-  },
-  detailText: {
-    flex: 1,
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  address: {
-    marginTop: -7,
-    marginLeft: 28,
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 12,
-    lineHeight: 18,
+    borderTopWidth: 1,
+    borderTopColor: Theme.PRIMARY_BORDER,
+    paddingTop: 14,
+    marginTop: 14,
   },
   noteSection: {
-    marginTop: 16,
-    paddingTop: 15,
+    borderLeftWidth: 3,
+    borderLeftColor: Theme.PRIMARY,
+    paddingLeft: 16,
+    paddingVertical: 4,
+  },
+  noteHeading: { flexShrink: 1, color: Theme.TEXT, fontSize: 15, fontWeight: '700' },
+  noteText: { color: Theme.SUB_TEXT_COLOR, fontSize: 14, lineHeight: 22, marginTop: 8 },
+  joinFooter: {
+    width: '100%',
+    flexShrink: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E7EEEE',
+    borderTopColor: Theme.PRIMARY_BORDER,
+    backgroundColor: Theme.SURFACE,
+    shadowColor: Theme.PRIMARY,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  noteHeading: {
-    color: Theme.TEXT,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  noteText: {
-    marginTop: 5,
+  joinFooterContent: { width: '100%', maxWidth: 640, alignSelf: 'center' },
+  joinFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  joinFooterStack: { flexDirection: 'column', alignItems: 'stretch', gap: 12 },
+  joinCopy: { flexShrink: 1, flexGrow: 1, flexBasis: 0, minWidth: 0 },
+  joinCopyStack: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' },
+  joinTitle: { color: Theme.TEXT, fontSize: 16, fontWeight: '800', lineHeight: 22 },
+  joinSubtitle: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  joinButton: { flexShrink: 0, borderRadius: 14, minWidth: 144 },
+  joinButtonFullWidth: { width: '100%' },
+  joinButtonContent: { minHeight: 52, paddingHorizontal: 8 },
+  joinButtonLabel: { fontSize: 15, fontWeight: '700' },
+  joinedButton: { backgroundColor: '#E5F4EE' },
+  joinedLabel: { color: '#247A5C', fontSize: 15, fontWeight: '700' },
+  previewCaption: {
     color: Theme.SUB_TEXT_COLOR,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 10,
   },
 });

@@ -8,7 +8,7 @@ import {
   OnboardingMatchNotFound,
   OnboardingPlayerDetails,
   OnboardingSkillAvailability,
-  Home,
+  Home as Dashboard,
   Profile,
   FindMatches,
   CreateMatch,
@@ -18,18 +18,18 @@ import { Onboarding } from './screens/onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
 import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import Theme from '../theme';
-import { PlayMapMatchDetail, PlayMapCreateMatch } from './screens/PlayMapDetails';
 
 const HomeTabs = createBottomTabNavigator({
   screenOptions: {
     headerShown: false,
     tabBarActiveTintColor: Theme.PRIMARY,
+    tabBarStyle: { backgroundColor: Theme.SURFACE },
   },
   screens: {
     Home: {
-      screen: Home,
+      screen: Dashboard,
       options: {
         tabBarIcon: ({ focused, color, size }) => (
           <MaterialCommunityIcons
@@ -143,14 +143,6 @@ const RootStack = createNativeStackNavigator({
       options: {
         headerShown: false,
       },
-    },
-    PlayMapMatchDetail: {
-      screen: PlayMapMatchDetail,
-      options: { headerShown: false },
-    },
-    PlayMapCreateMatch: {
-      screen: PlayMapCreateMatch,
-      options: { headerShown: false },
     },
     MatchDetail: {
       screen: MatchDetail,

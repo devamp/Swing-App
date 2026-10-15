@@ -1,7 +1,7 @@
 import type { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'swing-app',
+  name: 'Swing',
   slug: 'swing-app',
   extra: {
     eas: {
@@ -9,14 +9,17 @@ const config: ExpoConfig = {
     },
   },
   version: '1.0.0',
-  orientation: 'default',
+  orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'automatic',
+  userInterfaceStyle: 'light',
   scheme: 'swingapp',
   ios: {
     supportsTablet: false,
+    requireFullScreen: true,
     bundleIdentifier: 'com.swing.app.play',
     infoPlist: {
+      UISupportedInterfaceOrientations: ['UIInterfaceOrientationPortrait'],
+      'UISupportedInterfaceOrientations~ipad': ['UIInterfaceOrientationPortrait'],
       NSLocationWhenInUseUsageDescription:
         'We use your location to show nearby players and courts.',
     },
@@ -37,12 +40,13 @@ const config: ExpoConfig = {
 
   plugins: [
     'expo-asset',
+    '@react-native-vector-icons/material-design-icons',
     '@react-native-community/datetimepicker',
     [
       'expo-splash-screen',
       {
         backgroundColor: '#ffffff',
-        image: './assets/swing-logo.png',
+        image: './assets/icon.png',
       },
     ],
   ],

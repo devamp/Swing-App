@@ -76,7 +76,7 @@ export function OnboardingSkillAvailability({ route }: OnboardingSkillAvailabili
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Onboarding 3 of 3</Text>
+          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Step 3 of 3</Text>
           <Text style={[Theme.styles.screenHeader, styles.header]}>Skill and play style</Text>
           <Text style={Theme.styles.subtext}>
             Pick the basics now. You can refine everything later.

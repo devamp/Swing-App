@@ -6,7 +6,7 @@ import {
   selectNearbyMatches,
   type SearchCenter,
 } from '../../../services/matchService/nearbyMatches';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -20,7 +20,9 @@ import {
 } from 'react-native';
 import { ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CompactMatchCard, UpcomingMatchCard } from '../../../components/MatchCards';
+import { UpcomingMatchCard } from '../../../components/MatchCards';
+import NearbyMatchCard from '../../../components/NearbyMatchCard';
+import HomeHeader from '../../../components/HomeHeader';
 import { matchService } from '../../../services';
 import { authService } from '../../../services/authService';
 import { userService } from '../../../services/userService';
@@ -144,7 +146,7 @@ export function Home() {
 
   const nearbyMatches =
     center && currentUserId
-      ? selectNearbyMatches(discoverableMatches, center, radius, currentUserId).slice(0, 2)
+      ? selectNearbyMatches(discoverableMatches, center, radius, currentUserId).slice(0, 3)
       : [];
 
   const useCurrentLocation = async () => {
@@ -180,8 +182,6 @@ export function Home() {
   });
 
   const userName = (user as User | null)?.username || authUser?.displayName || 'Player';
-  const firstName = userName.trim().split(/\s+/)[0];
-  // No notification feed or unread-count source exists yet; do not fabricate a badge.
 
   const openMatchDetails = (matchId: string) => {
     navigation.navigate('MatchDetail', { matchId });
@@ -196,34 +196,14 @@ export function Home() {
       ) : (
         <ScrollView
           style={Theme.styles.scrollView}
-          contentContainerStyle={Theme.styles.scrollContent}
+          contentContainerStyle={[Theme.styles.scrollContent, styles.scrollContent]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerContainer}>
-            <View style={styles.headerCopy}>
-              <View style={styles.welcomeRow}>
-                <Text style={[Theme.styles.screenHeader, styles.welcomeText]}>
-                  Welcome, {firstName}!
-                </Text>
-                <MaterialCommunityIcons name="hand-wave" size={22} color={Theme.PRIMARY} />
-              </View>
-              <Text style={[Theme.styles.subtext, styles.headerSubtitle]}>
-                Ready for your next game?
-              </Text>
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              onPress={() =>
-                SwingAlert.alert('Notifications', 'Notifications are not available yet.')
-              }
-              hitSlop={8}
-              style={({ pressed }) => [styles.notificationButton, pressed && styles.pressed]}
-            >
-              <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.PRIMARY} />
-            </Pressable>
-          </View>
+          <HomeHeader
+            userName={userName}
+            onOpenProfile={() => navigation.navigate('Home', { screen: 'Profile' })}
+            onFindMatch={openPlayMap}
+          />
 
           <Section title="Upcoming Match" icon="calendar-clock">
             {isUpcomingMatchLoading ? (
@@ -275,7 +255,9 @@ export function Home() {
                   onPress={onPress}
                   style={({ pressed }) => [styles.quickActionButton, pressed && styles.pressed]}
                 >
-                  <MaterialCommunityIcons name={icon} size={22} color={Theme.PRIMARY} />
+                  <View style={styles.quickActionIcon}>
+                    <MaterialCommunityIcons name={icon} size={28} color={Theme.PRIMARY} />
+                  </View>
                   <Text style={styles.quickActionLabel}>{label}</Text>
                 </Pressable>
               ))}
@@ -322,7 +304,7 @@ export function Home() {
             ) : nearbyMatches.length ? (
               <View style={styles.nearbyMatchesRow}>
                 {nearbyMatches.map((match) => (
-                  <CompactMatchCard
+                  <NearbyMatchCard
                     key={match.id}
                     match={match}
                     onPress={() => openMatchDetails(match.id)}
@@ -343,8 +325,7 @@ export function Home() {
                   No matches nearby yet
                 </Text>
                 <Text style={styles.emptyMatchMessage}>
-                  Couldn't find any open matches nearby. Visit the Play Map to explore a greater
-                  area.
+                  Couldn't find any open matches nearby. Create a match to get a game started.
                 </Text>
               </View>
             )}
@@ -356,37 +337,7 @@ export function Home() {
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  headerCopy: {
-    flex: 1,
-  },
-  welcomeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  welcomeText: {
-    flexShrink: 1,
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    marginBottom: 0,
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.SURFACE,
-    borderWidth: 1,
-    borderColor: '#E4ECEC',
-  },
+  scrollContent: { paddingTop: 18 },
   pressed: {
     opacity: 0.7,
   },
@@ -411,7 +362,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#DDEAEA',
+    borderColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
   },
   emptyMatchIcon: {
@@ -420,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 15,
-    backgroundColor: '#EAF5F5',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   emptyMatchTitle: {
     marginTop: 10,
@@ -455,22 +406,28 @@ const styles = StyleSheet.create({
   stackedActions: { flexDirection: 'column' },
   quickActionButton: {
     flex: 1,
-    minHeight: 68,
-    padding: 10,
+    minHeight: 96,
+    padding: 12,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#DDEAEA',
+    borderColor: '#E1E7DD',
     backgroundColor: Theme.SURFACE,
-    shadowColor: Theme.TEXT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 10,
   },
-  quickActionLabel: { fontSize: 12, fontWeight: '600', color: Theme.PRIMARY, textAlign: 'center' },
+  quickActionIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Theme.PRIMARY,
+    textAlign: 'center',
+  },
   searchArea: { fontSize: 13, color: Theme.SUB_TEXT_COLOR },
   inlineAction: {
     minHeight: 44,

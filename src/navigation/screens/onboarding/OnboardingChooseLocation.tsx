@@ -1,5 +1,5 @@
 import type { StaticScreenProps } from '@react-navigation/core';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -81,7 +81,7 @@ export function OnboardingChooseLocation({ route }: OnboardingChooseLocationProp
         keyboardShouldPersistTaps="handled"
       >
         <View>
-          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Onboarding 2 of 3</Text>
+          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Step 2 of 3</Text>
           <Text style={[Theme.styles.screenHeader, styles.header]}>Where do you want to play?</Text>
           <Text style={Theme.styles.subtext}>
             Swing uses your location to show nearby players and games in your search radius.

@@ -11,13 +11,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ActivityIndicator, Button, Snackbar, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SelectableChip from '../../../components/SelectableChip';
+import CourtBackground from '../../../components/CourtBackground';
 import { authService } from '../../../services/authService';
 import type {
   MatchActivity,
@@ -33,6 +34,7 @@ import { Database } from '../../../services/firebase';
 import Theme from '../../../theme';
 import { getPlayerInitials } from '../../../utils';
 import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
+import SwingAlert from '../../../components/SwingAlert';
 
 type UserDocument = {
   username?: string;
@@ -506,6 +508,14 @@ export function Profile() {
   });
 
   const confirmDelete = () => {
+    SwingAlert.alert(
+      'Delete account?',
+      'This permanently removes your Swing profile and cannot be undone.',
+      [
+        { text: 'string', onPress: () => {}, style: 'default' },
+        { text: 'string', onPress: () => {}, style: 'default' },
+      ],
+    );
     Alert.alert(
       'Delete account?',
       'This permanently removes your Swing profile and cannot be undone.',
@@ -526,6 +536,7 @@ export function Profile() {
   if (!authUser || profileQuery.isError) {
     return (
       <SafeAreaView style={styles.stateContainer}>
+        <CourtBackground />
         <MaterialCommunityIcons name="account-alert-outline" size={48} color={Theme.PRIMARY} />
         <Text style={styles.stateTitle}>We couldn’t load your profile</Text>
         <Text style={styles.stateCopy}>
@@ -543,6 +554,7 @@ export function Profile() {
   if (profileQuery.isLoading || !user) {
     return (
       <SafeAreaView style={styles.stateContainer}>
+        <CourtBackground />
         <ActivityIndicator size="large" color={Theme.PRIMARY} />
         <Text style={styles.stateCopy}>Loading your profile…</Text>
       </SafeAreaView>
@@ -561,6 +573,7 @@ export function Profile() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <CourtBackground />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -568,7 +581,15 @@ export function Profile() {
       >
         <Text style={styles.screenTitle}>Profile</Text>
         <View style={styles.profileHeader}>
-          <Avatar photoUrl={initialForm.photoUrl} name={name} />
+          <View style={styles.avatarFrame}>
+            <View
+              style={styles.avatarHalo}
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            />
+            <Avatar photoUrl={initialForm.photoUrl} name={name} />
+          </View>
           <Text style={styles.displayName}>{name}</Text>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons
@@ -580,15 +601,6 @@ export function Profile() {
               {initialForm.location || 'General area not added'}
             </Text>
           </View>
-          {sports.length ? (
-            <View style={styles.sportBadges}>
-              {sports.map((sport) => (
-                <View key={sport} style={styles.sportBadge}>
-                  <Text style={styles.sportBadgeText}>{sport}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
           {initialForm.availabilityStatus ? (
             <View style={styles.statusPill}>
               <View style={styles.statusDot} />
@@ -775,7 +787,24 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24, gap: 16 },
   screenTitle: { color: Theme.PRIMARY, fontSize: 28, lineHeight: 34, fontWeight: '800' },
   profileHeader: { alignItems: 'center', paddingVertical: 8 },
-  avatar: { backgroundColor: '#DCECEC', borderWidth: 3, borderColor: Theme.SURFACE },
+  avatarFrame: {
+    width: 132,
+    height: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 66,
+    borderWidth: 1,
+    borderColor: `${Theme.PRIMARY}20`,
+  },
+  avatarHalo: {
+    position: 'absolute',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: Theme.PRIMARY,
+    opacity: 0.06,
+  },
+  avatar: { backgroundColor: Theme.PRIMARY_LIGHT, borderWidth: 3, borderColor: Theme.SURFACE },
   avatarFallback: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -818,7 +847,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#EAF5F4',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   sportBadgeText: {
     color: Theme.PRIMARY,
@@ -836,7 +865,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#E4F3F0',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Theme.PRIMARY },
   statusText: { flexShrink: 1, color: Theme.PRIMARY, fontSize: 13, fontWeight: '700' },
@@ -856,8 +885,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#B7DAD5',
-    backgroundColor: '#EDF8F6',
+    borderColor: Theme.PRIMARY_BORDER,
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   completionIcon: {
     width: 42,
@@ -884,7 +913,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#DDEAEA',
+    borderColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
@@ -918,7 +947,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF5F4',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   sportName: { flex: 1, color: '#202C30', fontSize: 15, lineHeight: 21, fontWeight: '600' },
   skillBadge: {
@@ -927,7 +956,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: '#EAF5F4',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   skillText: {
     color: Theme.PRIMARY,
@@ -944,7 +973,7 @@ const styles = StyleSheet.create({
     columnGap: '4%',
     rowGap: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#DDEAEA',
+    borderTopColor: Theme.PRIMARY_BORDER,
   },
   preferenceItem: { width: '48%', gap: 4 },
   preferenceLabel: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 17 },
@@ -965,7 +994,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#F3F8F8',
+    backgroundColor: Theme.PRIMARY_LIGHT,
   },
   activityCount: {
     marginTop: 3,
@@ -988,7 +1017,7 @@ const styles = StyleSheet.create({
   },
   accountLabel: { flex: 1, color: '#202C30', fontSize: 15, fontWeight: '500' },
   destructiveLabel: { color: '#B42318' },
-  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#DDEAEA' },
+  accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: Theme.PRIMARY_BORDER },
   pressed: { opacity: 0.65 },
   emptyText: { color: Theme.SUB_TEXT_COLOR, fontSize: 14, lineHeight: 20 },
   stateContainer: {
@@ -1009,7 +1038,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#DDEAEA',
+    borderBottomColor: Theme.PRIMARY_BORDER,
     backgroundColor: Theme.SURFACE,
   },
   modalTitle: { color: Theme.TEXT, fontSize: 18, fontWeight: '800' },

@@ -1,6 +1,7 @@
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import {
   useCallback,
   useEffect,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -31,10 +33,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService, courtService, matchService } from '../../services';
 import type { CourtLocation, CourtType, SkillLevel, Sport } from '../../types';
 import { CreateMatchForm } from '../../services/matchService/types';
+import { distanceMiles } from '../../services/distance';
 
-const CARD_BORDER = '#DDEAEA';
-const DIVIDER = '#E7EEEE';
-const TEAL_TINT = '#EAF5F5';
+const CARD_BORDER = Theme.PRIMARY_BORDER;
+const DIVIDER = Theme.PRIMARY_BORDER;
+const PRIMARY_TINT = Theme.PRIMARY_LIGHT;
 const ERROR = Theme.paperTheme.colors.error;
 
 const SKILL_LEVELS: Array<{ value: SkillLevel; label: string }> = [
@@ -51,7 +54,6 @@ const GAME_TYPES: Record<Sport, string[]> = {
   pickleball: ['Singles', 'Doubles', 'Open Play', 'Casual Match'],
 };
 
-const DATE_OPTIONS = ['Today', 'Tomorrow', 'This Weekend', 'Pick Date'];
 const FEATURED_COURT_COUNT = 3;
 const DEFAULT_COURT_REGION: Region = {
   latitude: 45.51512,
@@ -67,13 +69,25 @@ function getCourtCoordinate(court: CourtLocation): LatLng | null {
   if (
     typeof latitude !== 'number' ||
     !Number.isFinite(latitude) ||
+    Math.abs(latitude) > 90 ||
     typeof longitude !== 'number' ||
-    !Number.isFinite(longitude)
+    !Number.isFinite(longitude) ||
+    Math.abs(longitude) > 180
   ) {
     return null;
   }
 
   return { latitude, longitude };
+}
+
+function getCourtDistance(court: CourtLocation, userLocation: LatLng | null) {
+  const coordinate = getCourtCoordinate(court);
+  return coordinate && userLocation ? distanceMiles(userLocation, coordinate) : undefined;
+}
+
+function formatCourtDetails(court: CourtLocation, userLocation: LatLng | null) {
+  const distance = getCourtDistance(court, userLocation);
+  return `${distance != null ? `${distance.toFixed(1)} mi away · ` : ''}${formatCourtType(court.courtType)}`;
 }
 
 function getRegionForCoordinates(coordinates: LatLng[]): Region {
@@ -110,19 +124,6 @@ const INITIAL_FORM: CreateMatchForm = {
   note: '',
   matchName: '',
 };
-
-function dateForOption(label: string) {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-
-  if (label === 'Tomorrow') date.setDate(date.getDate() + 1);
-  if (label === 'This Weekend') {
-    const daysUntilSaturday = (6 - date.getDay() + 7) % 7;
-    date.setDate(date.getDate() + daysUntilSaturday);
-  }
-
-  return date;
-}
 
 function defaultMatchTime() {
   const time = new Date(Date.now() + 60 * 60 * 1000);
@@ -573,19 +574,67 @@ export function CreateMatch() {
   const courtMapRef = useRef<MapView>(null);
   const [form, setForm] = useState<CreateMatchForm>(INITIAL_FORM);
   const [dateModalVisible, setDateModalVisible] = useState(false);
-  const [customDate, setCustomDate] = useState<Date | null>(null);
   const [timeModalVisible, setTimeModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [courtSearchQuery, setCourtSearchQuery] = useState('');
+  const [courtSuggestionsVisible, setCourtSuggestionsVisible] = useState(false);
   const [draftCourtLocation, setDraftCourtLocation] = useState<CourtLocation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+  const [locationStatus, setLocationStatus] = useState('Finding your location…');
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setUserLocation(null);
+      setLocationStatus('Finding your location…');
+
+      async function locateUser() {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          if (!active) return;
+          if (!permission.granted) {
+            setLocationStatus(
+              'Allow location access in Settings to see distances and nearby courts first.',
+            );
+            return;
+          }
+
+          const position = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (!active) return;
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLocationStatus('Closest courts first · Distances from your current location');
+        } catch {
+          if (active)
+            setLocationStatus('Current location unavailable. Court distances cannot be shown.');
+        }
+      }
+
+      void locateUser();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const { data: loadedCourts = [] } = useQuery<CourtLocation[]>({
     queryKey: ['loadCourts'],
     queryFn: courtService.loadCourts,
   });
 
-  const courtLocations = loadedCourts;
+  const courtLocations = useMemo(
+    () =>
+      loadedCourts.map((court) => ({
+        ...court,
+        distanceMiles: getCourtDistance(court, userLocation),
+      })),
+    [loadedCourts, userLocation],
+  );
 
   const sortedCourtLocations = useMemo(
     () =>
@@ -621,14 +670,19 @@ export function CreateMatch() {
     [courtSearchQuery, sortedCourtLocations, visibleCourtLocations],
   );
 
+  const courtMapCoordinates = useMemo(
+    () => [
+      ...mappedCourtLocations
+        .map(getCourtCoordinate)
+        .filter((coordinate): coordinate is LatLng => coordinate !== null),
+      ...(userLocation ? [userLocation] : []),
+    ],
+    [mappedCourtLocations, userLocation],
+  );
+
   const initialCourtRegion = useMemo(
-    () =>
-      getRegionForCoordinates(
-        mappedCourtLocations
-          .map(getCourtCoordinate)
-          .filter((coordinate): coordinate is LatLng => coordinate !== null),
-      ),
-    [mappedCourtLocations],
+    () => getRegionForCoordinates(courtMapCoordinates),
+    [courtMapCoordinates],
   );
 
   const startsAt = useMemo(
@@ -657,6 +711,8 @@ export function CreateMatch() {
     setForm((current) => ({ ...current, [key]: value }));
 
   const closeLocationModal = () => {
+    Keyboard.dismiss();
+    setCourtSuggestionsVisible(false);
     setLocationModalVisible(false);
     setCourtSearchQuery('');
     setDraftCourtLocation(null);
@@ -669,6 +725,8 @@ export function CreateMatch() {
 
   const focusCourt = useCallback((court: CourtLocation) => {
     const coordinate = getCourtCoordinate(court);
+    Keyboard.dismiss();
+    setCourtSuggestionsVisible(false);
     setDraftCourtLocation(court);
 
     if (coordinate) {
@@ -681,9 +739,7 @@ export function CreateMatch() {
 
   const fitMappedCourts = useCallback(
     (animated: boolean) => {
-      const coordinates = mappedCourtLocations
-        .map(getCourtCoordinate)
-        .filter((coordinate): coordinate is LatLng => coordinate !== null);
+      const coordinates = courtMapCoordinates;
 
       if (coordinates.length === 1) {
         courtMapRef.current?.animateToRegion(
@@ -697,13 +753,13 @@ export function CreateMatch() {
         });
       }
     },
-    [mappedCourtLocations],
+    [courtMapCoordinates],
   );
 
   useEffect(() => {
-    if (!locationModalVisible) return;
+    if (!locationModalVisible || draftCourtLocation) return;
     fitMappedCourts(true);
-  }, [fitMappedCourts, locationModalVisible]);
+  }, [draftCourtLocation, fitMappedCourts, locationModalVisible]);
 
   const selectSport = (sport: Sport) => {
     setForm((current) => ({
@@ -711,15 +767,6 @@ export function CreateMatch() {
       sport,
       gameType: current.sport === sport ? current.gameType : null,
     }));
-  };
-
-  const selectDate = (label: string) => {
-    if (label === 'Pick Date') {
-      setDateModalVisible(true);
-      return;
-    }
-    setCustomDate(null);
-    setForm((current) => ({ ...current, dateLabel: label, matchDate: dateForOption(label) }));
   };
 
   const handleCreateMatch = async () => {
@@ -824,9 +871,7 @@ export function CreateMatch() {
                 </Text>
                 <Text style={styles.helperText} numberOfLines={2}>
                   {form.location
-                    ? `${form.location.distanceMiles?.toFixed(1)} mi away · ${formatCourtType(
-                        form.location.courtType,
-                      )}`
+                    ? formatCourtDetails(form.location, userLocation)
                     : 'Search nearby courts or enter a place'}
                 </Text>
               </View>
@@ -843,19 +888,29 @@ export function CreateMatch() {
             complete={Boolean(form.matchDate && form.matchTime && isFutureMatch)}
           >
             <Text style={styles.fieldLabel}>Date</Text>
-            <View style={styles.chipRow}>
-              {DATE_OPTIONS.map((label) => (
-                <SelectableChip
-                  key={label}
-                  label={label}
-                  icon={label === 'Pick Date' ? 'calendar-outline' : undefined}
-                  selected={
-                    form.dateLabel === label || (label === 'Pick Date' && customDate !== null)
-                  }
-                  onPress={() => selectDate(label)}
-                />
-              ))}
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={form.matchDate ? `Change date, ${form.dateLabel}` : 'Pick date'}
+              onPress={() => setDateModalVisible(true)}
+              style={({ pressed }) => [
+                styles.timeSelector,
+                form.matchDate && styles.timeSelectorSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.locationIcon}>
+                <MaterialCommunityIcons name="calendar-outline" size={23} color={Theme.PRIMARY} />
+              </View>
+              <View style={styles.locationCopy}>
+                <Text style={[styles.timeSelectorValue, !form.matchDate && styles.placeholderText]}>
+                  {form.dateLabel ?? 'Pick Date'}
+                </Text>
+                <Text style={styles.helperText}>
+                  {form.matchDate ? 'Tap to change the match date' : 'Choose a date for your match'}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color={Theme.SUB_TEXT_COLOR} />
+            </Pressable>
             <Text style={[styles.fieldLabel, styles.subField]}>Time</Text>
             <Pressable
               accessibilityRole="button"
@@ -1013,7 +1068,6 @@ export function CreateMatch() {
           selectedDate={form.matchDate}
           onClose={() => setDateModalVisible(false)}
           onConfirm={(date) => {
-            setCustomDate(date);
             setForm((current) => ({
               ...current,
               matchDate: date,
@@ -1072,31 +1126,82 @@ export function CreateMatch() {
                   <MaterialCommunityIcons name="close" size={22} color={Theme.TEXT} />
                 </Pressable>
               </View>
-              <Searchbar
-                accessibilityLabel="Search courts"
-                elevation={0}
-                iconColor={Theme.PRIMARY}
-                inputStyle={styles.courtSearchInput}
-                onChangeText={(query) => {
-                  setCourtSearchQuery(query);
-                  setDraftCourtLocation(null);
-                }}
-                placeholder="Search courts"
-                placeholderTextColor={Theme.SUB_TEXT_COLOR}
-                style={styles.courtSearch}
-                value={courtSearchQuery}
-              />
+              <View style={styles.courtSearchContainer}>
+                <Searchbar
+                  accessibilityLabel="Search courts"
+                  elevation={0}
+                  iconColor={Theme.PRIMARY}
+                  inputStyle={styles.courtSearchInput}
+                  onChangeText={(query) => {
+                    setCourtSearchQuery(query);
+                    setDraftCourtLocation(null);
+                    setCourtSuggestionsVisible(true);
+                  }}
+                  onFocus={() => setCourtSuggestionsVisible(true)}
+                  placeholder="Search courts"
+                  placeholderTextColor={Theme.SUB_TEXT_COLOR}
+                  style={styles.courtSearch}
+                  value={courtSearchQuery}
+                />
+                {courtSuggestionsVisible && courtSearchQuery.trim() !== '' && (
+                  <View style={styles.courtSuggestions}>
+                    <ScrollView
+                      style={styles.courtSuggestionsScroll}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled
+                    >
+                      {visibleCourtLocations.length === 0 ? (
+                        <Text accessibilityLiveRegion="polite" style={styles.courtSuggestionEmpty}>
+                          No courts found. Try a different name or address.
+                        </Text>
+                      ) : visibleCourtLocations.map((court) => (
+                        <Pressable
+                          key={court.name}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select ${court.name}${court.address ? `, ${court.address}` : ''}`}
+                          onPress={() => {
+                            setCourtSearchQuery(court.name);
+                            focusCourt(court);
+                          }}
+                          style={({ pressed }) => [styles.courtSuggestion, pressed && styles.pressed]}
+                        >
+                          <MaterialCommunityIcons
+                            name="map-marker-outline"
+                            size={22}
+                            color={Theme.PRIMARY}
+                          />
+                          <View style={styles.locationCopy}>
+                            <Text style={styles.modalLocationName}>{court.name}</Text>
+                            {court.address ? (
+                              <Text numberOfLines={1} style={styles.helperText}>{court.address}</Text>
+                            ) : null}
+                            <Text style={styles.helperText}>
+                              {formatCourtDetails(court, userLocation)}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.courtMapContainer}>
-                {mappedCourtLocations.length > 0 ? (
+                {courtMapCoordinates.length > 0 ? (
                   <MapView
                     ref={courtMapRef}
                     initialRegion={initialCourtRegion}
                     loadingEnabled
                     loadingIndicatorColor={Theme.PRIMARY}
                     onMapReady={() => fitMappedCourts(false)}
+                    onPress={() => {
+                      setCourtSuggestionsVisible(false);
+                      Keyboard.dismiss();
+                    }}
                     provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
                     rotateEnabled={false}
+                    showsUserLocation={userLocation !== null}
+                    showsMyLocationButton={userLocation !== null}
                     style={styles.courtMap}
                   >
                     {mappedCourtLocations.map((court) => {
@@ -1157,6 +1262,9 @@ export function CreateMatch() {
                 </Text>
                 <Text style={styles.courtListCount}>{visibleCourtLocations.length}</Text>
               </View>
+              <Text accessibilityLiveRegion="polite" style={styles.nearbyCourtSubtext}>
+                {locationStatus}
+              </Text>
               <ScrollView
                 style={styles.courtResults}
                 contentContainerStyle={styles.courtList}
@@ -1208,10 +1316,7 @@ export function CreateMatch() {
                         <View style={styles.locationCopy}>
                           <Text style={styles.modalLocationName}>{location.name}</Text>
                           <Text numberOfLines={1} style={styles.helperText}>
-                            {location.distanceMiles != null
-                              ? `${location.distanceMiles.toFixed(1)} mi away · `
-                              : ''}
-                            {formatCourtType(location.courtType)}
+                            {formatCourtDetails(location, userLocation)}
                           </Text>
                         </View>
                         {selected ? (
@@ -1288,7 +1393,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1313,7 +1418,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  calendarToday: { borderColor: Theme.PRIMARY, backgroundColor: TEAL_TINT },
+  calendarToday: { borderColor: Theme.PRIMARY, backgroundColor: PRIMARY_TINT },
   calendarSelected: { backgroundColor: Theme.PRIMARY, borderColor: Theme.PRIMARY },
   calendarDayText: { color: Theme.TEXT, fontSize: 15, fontWeight: '600' },
   calendarDisabledText: { color: '#B7C3C3' },
@@ -1326,7 +1431,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderRadius: 16,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     marginVertical: 18,
   },
   flex: { flex: 1 },
@@ -1384,6 +1489,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   fieldLabel: { color: Theme.TEXT, fontSize: 15, fontWeight: '700', marginBottom: 9 },
   subField: { marginTop: 18 },
+  nearbyCourtSubtext: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18, marginBottom: 10 },
   helperText: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18 },
   validationText: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 17, marginTop: 9 },
   locationCard: {
@@ -1400,7 +1506,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1414,7 +1520,7 @@ const styles = StyleSheet.create({
     gap: 7,
     marginTop: 14,
     borderRadius: 10,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     paddingHorizontal: 11,
     paddingVertical: 9,
   },
@@ -1429,8 +1535,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 11,
   },
-  timeSelectorSelected: { borderColor: Theme.PRIMARY, backgroundColor: TEAL_TINT },
-  timeSelectorValue: { color: Theme.TEXT, fontSize: 20, lineHeight: 25, fontWeight: '800' },
+  timeSelectorSelected: { borderColor: Theme.PRIMARY, backgroundColor: PRIMARY_TINT },
+  timeSelectorValue: { color: Theme.TEXT, fontSize: 16, lineHeight: 25, fontWeight: '800' },
   errorText: { color: ERROR },
   divider: { height: 1, backgroundColor: DIVIDER, marginVertical: 18 },
   stepperRow: {
@@ -1515,7 +1621,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1528,7 +1634,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   gameBadge: {
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 999,
@@ -1594,6 +1700,34 @@ const styles = StyleSheet.create({
     borderColor: Theme.SECONDARY,
     backgroundColor: Theme.SURFACE,
   },
+  courtSearchContainer: { zIndex: 10 },
+  courtSuggestions: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
+    backgroundColor: Theme.SURFACE,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  courtSuggestionsScroll: { maxHeight: 240 },
+  courtSuggestion: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: DIVIDER,
+  },
+  courtSuggestionEmpty: { padding: 16, color: Theme.SUB_TEXT_COLOR, fontSize: 13 },
   courtSearchInput: { minHeight: 0, fontSize: 15, lineHeight: 20 },
   courtMapContainer: {
     height: 174,
@@ -1602,7 +1736,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
   },
   courtMap: { width: '100%', height: '100%' },
   courtMapEmpty: {
@@ -1626,7 +1760,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: Theme.SURFACE,
-    backgroundColor: '#DCECEC',
+    backgroundColor: Theme.PRIMARY_LIGHT,
     shadowColor: Theme.TEXT,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.22,
@@ -1660,11 +1794,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 12,
-    paddingBottom: 8,
   },
   courtListLabel: {
     color: Theme.PRIMARY,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
   },
   courtListCount: {
@@ -1677,7 +1810,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
   },
   courtResults: { flex: 1 },
   courtList: { paddingBottom: 8 },
@@ -1688,7 +1821,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
   },
   emptyCourtTitle: { color: Theme.TEXT, fontSize: 16, fontWeight: '700', marginTop: 12 },
   emptyCourtText: {
@@ -1717,7 +1850,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  modalLocationSelected: { borderColor: Theme.PRIMARY, backgroundColor: TEAL_TINT },
+  modalLocationSelected: { borderColor: Theme.PRIMARY, backgroundColor: PRIMARY_TINT },
   modalLocationName: { color: Theme.TEXT, fontSize: 14, fontWeight: '700' },
   resultMarkerIcon: {
     width: 36,
@@ -1725,7 +1858,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: TEAL_TINT,
+    backgroundColor: PRIMARY_TINT,
   },
   resultMarkerIconSelected: { backgroundColor: Theme.PRIMARY },
   chooseCourtButton: { marginTop: 8, borderRadius: 16 },

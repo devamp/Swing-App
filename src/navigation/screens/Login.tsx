@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MaterialCommunityIcons from "@react-native-vector-icons/material-design-icons/static";
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Button, TextInput } from 'react-native-paper';
@@ -158,7 +158,9 @@ export function Login() {
 
           <Button
             mode="contained"
-            icon="login"
+            icon={({ size, color }) => (
+              <MaterialCommunityIcons name="login" size={20} color="white" />
+            )}
             onPress={handleLogin}
             loading={isLoggingIn}
             disabled={isLoggingIn}
@@ -182,10 +184,6 @@ export function Login() {
               <Text style={styles.linkText}>Start Onboarding</Text>
             </Pressable>
           </View>
-        </View>
-
-        <View style={styles.logoContainer}>
-          <Image source={swingLogo} style={styles.logo} />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -66,7 +66,7 @@ export function OnboardingChooseSport() {
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Onboarding 1 of 3</Text>
+          <Text style={[Theme.styles.subtext, { fontWeight: 600 }]}>Step 1 of 3</Text>
           <Text style={[Theme.styles.screenHeader, styles.header]}>What do you want to play?</Text>
           <Text style={Theme.styles.subtext}>
             Choose one or both sports so Swing can tune your matches.
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Theme.SECONDARY,
-    shadowColor: '#004C4C',
+    shadowColor: Theme.PRIMARY,
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
