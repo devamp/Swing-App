@@ -24,11 +24,16 @@ import Theme from '../theme';
 const HomeTabs = createBottomTabNavigator({
   screenOptions: {
     headerShown: false,
+    animation: 'shift',
+    transitionSpec: {
+      animation: 'timing',
+      config: { duration: 250 },
+    },
     tabBarActiveTintColor: Theme.PRIMARY,
     tabBarStyle: { backgroundColor: Theme.SURFACE },
   },
   screens: {
-    Home: {
+    Dashboard: {
       screen: Dashboard,
       options: {
         tabBarIcon: ({ focused, color, size }) => (

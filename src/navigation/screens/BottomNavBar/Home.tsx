@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
-import SwingAlert from '../../../components/SwingAlert';
 import {
-  hasCoordinates,
+  getSavedSearchCenter,
   selectNearbyMatches,
   type SearchCenter,
 } from '../../../services/matchService/nearbyMatches';
@@ -10,6 +9,7 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -102,13 +102,7 @@ export function Home() {
 
   const preferences = (user as User | undefined)?.onboardingPreferences;
   const savedArea = preferences?.searchCriteria;
-  const savedCenter =
-    savedArea?.type === 'Current' && hasCoordinates(savedArea)
-      ? {
-          ...savedArea,
-          label: `Saved location (${savedArea.latitude.toFixed(2)}, ${savedArea.longitude.toFixed(2)})`,
-        }
-      : null;
+  const savedCenter = getSavedSearchCenter(savedArea);
   const center = locationOverride ?? savedCenter;
   const radius = radiusOverride ?? preferences?.radiusMiles ?? 10;
   const isDiscoveryEnabled = Boolean(currentUserId && center);
@@ -241,7 +235,7 @@ export function Home() {
                     'My Matches',
                     'calendar-outline',
                     () =>
-                      SwingAlert.alert(
+                      Alert.alert(
                         'My Matches',
                         'Your match list is not available yet. Your next hosted match appears above.',
                       ),
@@ -293,6 +287,19 @@ export function Home() {
                 <Text style={styles.searchArea}>
                   {locating ? 'Finding your location…' : 'Finding nearby matches…'}
                 </Text>
+              </View>
+            ) : !center ? (
+              <View style={styles.emptyMatchCard}>
+                <Text style={styles.emptyMatchTitle}>Choose a search location</Text>
+                <Text style={styles.emptyMatchMessage}>
+                  {locationError || 'Use your current location to find nearby matches.'}
+                </Text>
+                <Button
+                  mode="outlined"
+                  onPress={permissionBlocked ? () => Linking.openSettings() : useCurrentLocation}
+                >
+                  {permissionBlocked ? 'Open settings' : 'Use current location'}
+                </Button>
               </View>
             ) : areNearbyMatchesError ? (
               <View style={styles.nearbyEmptyState}>

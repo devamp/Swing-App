@@ -10,7 +10,6 @@ import { Navigation } from './navigation';
 import { PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Theme from './theme';
-import SwingAlert from './components/SwingAlert';
 import { authService } from './services/authService';
 
 // Keep native controls (including Apple Maps) light in existing development builds too.
@@ -98,7 +97,6 @@ export function App() {
             SplashScreen.hideAsync();
           }}
         />
-        <SwingAlert />
       </PaperProvider>
     </QueryClientProvider>
   );

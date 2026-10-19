@@ -57,7 +57,7 @@ export function OnboardingChooseLocation({ route }: OnboardingChooseLocationProp
 
   const setPortlandLocation = () => {
     setPermissionMessage('');
-    setSearchCriteria({ type: 'Manual', label: Constants.PORTLAND });
+    setSearchCriteria({ type: 'Manual', ...Constants.PORTLAND_CENTER });
   };
 
   const handleContinue = () => {

@@ -1,3 +1,4 @@
+import { SwingError } from './errorService';
 import { OnboardingMatchPreferencesParams } from '../navigation/screens/onboarding/OnboardingFlowTypes';
 import { SignUpCredentials, User } from '../types';
 import { Database } from './firebase';
@@ -33,7 +34,7 @@ class UserService {
       await setDoc(doc(Database, 'Users', id), newUserData);
     } catch (error) {
       console.error('Error adding document: ', error);
-      throw error;
+      throw SwingError.parse(error);
     }
   }
 
@@ -49,7 +50,7 @@ class UserService {
       console.log(`Could not find user by id: ${userId}`);
     } catch (error) {
       console.error('Error getting user by id: ', error);
-      throw error;
+      throw SwingError.parse(error);
     }
   }
 
@@ -67,7 +68,8 @@ class UserService {
         { merge: true },
       );
     } catch (error) {
-      console.log(error);
+      console.error('Error updating profile: ', error);
+      throw SwingError.parse(error);
     }
   }
 
@@ -75,7 +77,7 @@ class UserService {
     try {
       await deleteObject(ref(Storage, `profilePhotos/${userId}/avatar.jpg`));
     } catch (error: unknown) {
-      if ((error as { code?: string }).code !== 'storage/object-not-found') throw error;
+      if ((error as { code?: string }).code !== 'storage/object-not-found') throw SwingError.parse(error);
     }
     await deleteDoc(doc(Database, 'Users', userId));
   }

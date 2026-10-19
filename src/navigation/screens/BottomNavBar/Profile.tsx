@@ -34,7 +34,7 @@ import { Database } from '../../../services/firebase';
 import Theme from '../../../theme';
 import { getPlayerInitials } from '../../../utils';
 import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
-import SwingAlert from '../../../components/SwingAlert';
+import { SwingBadRequestError, SwingError, SwingNotFoundError } from '../../../services/errorService';
 
 type UserDocument = {
   username?: string;
@@ -430,9 +430,9 @@ export function Profile() {
     queryKey: profileQueryKey,
     enabled: Boolean(userId),
     queryFn: async () => {
-      if (!userId) throw new Error('You are not signed in.');
+      if (!userId) throw new SwingBadRequestError('Please sign in to view your profile.');
       const loadedUser = await userService.getUserById(userId);
-      if (!loadedUser) throw new Error('Your profile could not be found.');
+      if (!loadedUser) throw new SwingNotFoundError('Your profile could not be found.');
       return loadedUser as UserDocument;
     },
   });
@@ -467,7 +467,7 @@ export function Profile() {
 
   const saveMutation = useMutation({
     mutationFn: async (form: EditForm) => {
-      if (!authUser?.uid) throw new Error('You are not signed in.');
+      if (!authUser?.uid) throw new SwingBadRequestError('Please sign in to save your profile.');
 
       await userService.updateProfile(authUser.uid, {
         ...form,
@@ -485,37 +485,22 @@ export function Profile() {
       setSuccessMessage('Profile saved.');
       await profileQuery.refetch();
     },
-    onError: () => Alert.alert('Could not save profile', 'Check your connection and try again.'),
+    onError: (error) => SwingError.showAlert(error),
   });
 
   const logoutMutation = useMutation({
     mutationFn: () => authService.logout(),
     onSuccess: () => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Landing' }] }),
-    onError: () => Alert.alert('Could not log out', 'Please try again.'),
+    onError: (error) => SwingError.showAlert(error),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => authService.deleteAccount(),
     onSuccess: () => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Landing' }] }),
-    onError: (error: { code?: string }) => {
-      Alert.alert(
-        'Could not delete account',
-        error.code === 'auth/requires-recent-login'
-          ? 'For your security, log out and sign in again before deleting your account.'
-          : 'Your account could not be deleted. Please try again.',
-      );
-    },
+    onError: (error) => SwingError.showAlert(error),
   });
 
   const confirmDelete = () => {
-    SwingAlert.alert(
-      'Delete account?',
-      'This permanently removes your Swing profile and cannot be undone.',
-      [
-        { text: 'string', onPress: () => {}, style: 'default' },
-        { text: 'string', onPress: () => {}, style: 'default' },
-      ],
-    );
     Alert.alert(
       'Delete account?',
       'This permanently removes your Swing profile and cannot be undone.',
@@ -540,9 +525,7 @@ export function Profile() {
         <MaterialCommunityIcons name="account-alert-outline" size={48} color={Theme.PRIMARY} />
         <Text style={styles.stateTitle}>We couldn’t load your profile</Text>
         <Text style={styles.stateCopy}>
-          {profileQuery.error instanceof Error
-            ? profileQuery.error.message
-            : 'Check your connection and try again.'}
+          {SwingError.parse(profileQuery.error).message}
         </Text>
         <Button mode="contained" onPress={() => profileQuery.refetch()} buttonColor={Theme.PRIMARY}>
           Retry
@@ -695,7 +678,7 @@ export function Profile() {
               icon="calendar-clock"
               count={activity.upcoming}
               label="Upcoming"
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigation.navigate('Home', { screen: 'Dashboard' })}
             />
             <ActivityItem icon="account-check-outline" count={activity.joined} label="Joined" />
             <ActivityItem icon="whistle-outline" count={activity.hosted} label="Hosted" />

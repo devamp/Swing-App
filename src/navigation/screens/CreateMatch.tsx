@@ -30,7 +30,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, type LatLng, type Region } from 'reac
 import SelectableChip from '../../components/SelectableChip';
 import Theme from '../../theme';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { authService, courtService, matchService } from '../../services';
+import { authService, courtService, matchService, SwingError } from '../../services';
 import type { CourtLocation, CourtType, SkillLevel, Sport } from '../../types';
 import { CreateMatchForm } from '../../services/matchService/types';
 import { distanceMiles } from '../../services/distance';
@@ -796,8 +796,8 @@ export function CreateMatch() {
       Alert.alert('Match posted', 'Nearby players can now find your match.', [
         { text: 'Done', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Could not post match', 'Please check your connection and try again.');
+    } catch (error) {
+      SwingError.showAlert(error);
     } finally {
       setIsSubmitting(false);
     }

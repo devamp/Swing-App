@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Button, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SwingAlert from '../../components/SwingAlert';
+import { SwingError } from '../../services/errorService';
 import { authService } from '../../services/authService';
 import Theme from '../../theme';
 
@@ -42,14 +42,7 @@ export function Login() {
     mutationFn: ({ loginEmail, loginPassword }: { loginEmail: string; loginPassword: string }) =>
       authService.login(loginEmail, loginPassword),
     onSuccess: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }),
-    onError: (error) => {
-      SwingAlert.alert(
-        'Could not log in',
-        error instanceof Error ? error.message : 'Please check your details and try again.',
-        undefined,
-        { type: 'error' },
-      );
-    },
+    onError: (error) => SwingError.showAlert(error),
   });
 
   const handleLogin = () => {
@@ -62,7 +55,7 @@ export function Login() {
   };
 
   const handleForgotPassword = () => {
-    SwingAlert.alert(
+    Alert.alert(
       'Forgot password',
       'Password reset is not available yet. Please check back soon.',
     );

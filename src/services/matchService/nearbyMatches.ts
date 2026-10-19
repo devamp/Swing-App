@@ -1,6 +1,20 @@
 import type { FoundMatch } from './types';
+import Constants from '../../constants';
+import type { SearchCriteria } from '../../navigation/screens/onboarding/OnboardingFlowTypes';
 
 export type SearchCenter = { latitude: number; longitude: number; label: string };
+
+export function getSavedSearchCenter(area?: SearchCriteria): SearchCenter | null {
+  if (!area) return null;
+  if (hasCoordinates(area)) {
+    return { latitude: area.latitude, longitude: area.longitude, label: area.label };
+  }
+  // Older accounts saved the manual Portland preset as a label without coordinates.
+  if (area.type === 'Manual' && area.label === Constants.PORTLAND) {
+    return { ...Constants.PORTLAND_CENTER };
+  }
+  return null;
+}
 
 export function hasCoordinates(value: { latitude?: number; longitude?: number }): value is {
   latitude: number;
@@ -47,7 +61,12 @@ export function selectNearbyMatches(
 ): FoundMatch[] {
   return matches
     .flatMap((match) => {
-      if (match.userId === userId || match.startsAt.toMillis() < now || match.playersNeeded <= 0)
+      if (
+        match.userId === userId ||
+        match.members?.includes(userId) ||
+        match.startsAt.toMillis() < now ||
+        match.playersNeeded <= 0
+      )
         return [];
       const result = withViewerDistance(match, center);
       const distanceMiles = result.matchCourtLocation.distanceMiles;

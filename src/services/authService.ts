@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { Auth } from './firebase';
 import { userService } from './userService';
+import { SwingBadRequestError } from './errorService';
 import { SignUpCredentials } from '../types';
 import { OnboardingMatchPreferencesParams } from '../navigation/screens/onboarding/OnboardingFlowTypes';
 
@@ -57,23 +58,22 @@ class AuthService {
   }
 
   async updateDisplayName(displayName: string): Promise<void> {
-    if (!Auth.currentUser) throw new Error('No authenticated user');
+    if (!Auth.currentUser) throw new SwingBadRequestError('Please sign in to update your profile.');
     await updateProfile(Auth.currentUser, { displayName });
   }
 
   async deleteAccount(): Promise<void> {
     const user = Auth.currentUser;
-    if (!user) throw new Error('No authenticated user');
+    if (!user) throw new SwingBadRequestError('Please sign in to delete your account.');
 
     const lastSignInAt = user.metadata.lastSignInTime
       ? new Date(user.metadata.lastSignInTime).getTime()
       : 0;
     if (!lastSignInAt || Date.now() - lastSignInAt > 4 * 60 * 1000) {
-      const error = new Error('A recent sign-in is required to delete this account') as Error & {
-        code: string;
-      };
-      error.code = 'auth/requires-recent-login';
-      throw error;
+      throw new SwingBadRequestError(
+        'For your security, log out and sign in again before deleting your account.',
+        { code: 'auth/requires-recent-login' },
+      );
     }
 
     // Delete private profile data while the user still has permission to do so.

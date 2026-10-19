@@ -8,7 +8,7 @@ import Theme from '../../theme';
 import { authService } from '../../services/authService';
 import type { SignUpCredentials } from '../../types';
 import { useMutation } from '@tanstack/react-query';
-import SwingAlert from '../../components/SwingAlert';
+import { SwingError } from '../../services/errorService';
 import { OnboardingMatchPreferencesParams } from './onboarding/OnboardingFlowTypes';
 
 type SignUpProps = StaticScreenProps<OnboardingMatchPreferencesParams>;
@@ -66,14 +66,7 @@ export function SignUp({ route }: SignUpProps) {
     onSuccess: (createdUser) => {
       navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     },
-    onError: (error) => {
-      SwingAlert.alert(
-        'Could not create profile',
-        error instanceof Error ? error.message : 'Please try again.',
-        undefined,
-        { type: 'error' },
-      );
-    },
+    onError: (error) => SwingError.showAlert(error),
   });
 
   const handleSignUp = () => {

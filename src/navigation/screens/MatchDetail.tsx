@@ -22,6 +22,11 @@ import CourtBackground from '../../components/CourtBackground';
 import { formatSkillLevel, getRelativeDateLabel } from '../../components/MatchCards';
 import { matchService } from '../../services';
 import { authService } from '../../services/authService';
+import {
+  SwingBadRequestError,
+  SwingError,
+  SwingInternalServerError,
+} from '../../services/errorService';
 import { hasCoordinates, withViewerDistance } from '../../services/matchService/nearbyMatches';
 import type { FoundMatch } from '../../services/matchService/types';
 import Theme from '../../theme';
@@ -33,8 +38,8 @@ export function MatchDetail({ route }: MatchDetailProps) {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { matchId } = route.params;
-  const [previewJoinedMatchId, setPreviewJoinedMatchId] = useState<string | null>(null);
-  const mockJoined = previewJoinedMatchId === matchId;
+  const userId = authService.getCurrentUser()?.uid;
+
   const {
     data: match,
     isLoading,
@@ -59,14 +64,100 @@ export function MatchDetail({ route }: MatchDetailProps) {
       }
       goBack();
     },
-    onError: (error) => {
+    onError: (error) => SwingError.showAlert(error),
+  });
+
+  const { mutate: joinMatch, isPending: isJoining } = useMutation({
+    mutationFn: ({ userId, matchId }: { userId: string; matchId: string }) =>
+      matchService.joinMatch(userId, matchId),
+    onSuccess: async (_, { userId, matchId }) => {
+      await queryClient.cancelQueries({ queryKey: ['matchDetail', matchId], exact: true });
+      queryClient.setQueryData<FoundMatch | null>(['matchDetail', matchId], (cachedMatch) => {
+        if (!cachedMatch || (cachedMatch.members ?? []).includes(userId)) return cachedMatch;
+
+        return {
+          ...cachedMatch,
+          members: [...(cachedMatch.members ?? []), userId],
+          playersNeeded: Math.max(0, cachedMatch.playersNeeded - 1),
+        };
+      });
+      for (const key of ['upcomingMatch', 'dashboardDiscovery', 'loadInitialUser', 'profile']) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
       Alert.alert(
-        'Could not delete the match',
-        error instanceof Error ? error.message : 'Please try again later.',
-        undefined,
+        "You're in!",
+        "We'll let the host know, you just worry about bringing your A game",
       );
     },
+    onError: (error) => SwingError.showAlert(error),
   });
+
+  const { mutate: leaveMatch, isPending: isLeaving } = useMutation({
+    mutationFn: ({ userId, matchId }: { userId: string; matchId: string }) =>
+      matchService.leaveMatch(userId, matchId),
+    onSuccess: async (_, { userId, matchId }) => {
+      await queryClient.cancelQueries({ queryKey: ['matchDetail', matchId], exact: true });
+      queryClient.setQueryData<FoundMatch | null>(['matchDetail', matchId], (cachedMatch) => {
+        if (!cachedMatch || !(cachedMatch.members ?? []).includes(userId)) return cachedMatch;
+
+        return {
+          ...cachedMatch,
+          members: cachedMatch.members.filter((memberId) => memberId !== userId),
+          playersNeeded: cachedMatch.playersNeeded + 1,
+        };
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['upcomingMatch', userId],
+          exact: true,
+          refetchType: 'all',
+        }),
+        ...['dashboardDiscovery', 'loadInitialUser', 'profile'].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
+      ]);
+    },
+    onError: (error) => SwingError.showAlert(error),
+  });
+
+  const confirmJoinMatch = () => {
+    if (isJoining || isLeaving || !match) return;
+    if (!userId) {
+      new SwingBadRequestError('Please sign in before joining a match.').showAlert();
+      return;
+    }
+
+    Alert.alert(
+      'Join match?',
+      `Are you sure you want to join "${match.matchName}"? The host will be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Join match',
+          style: 'default',
+          onPress: () => joinMatch({ userId, matchId: match.id }),
+        },
+      ],
+    );
+  };
+
+  const confirmLeaveMatch = () => {
+    if (!match || !userId || isJoining || isLeaving || match.userId === userId) return;
+    if (!(match.members ?? []).includes(userId)) return;
+
+    Alert.alert(
+      'Leave match?',
+      `Are you sure you want to leave "${match.matchName}"? Your spot will become available to other players.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave match',
+          style: 'destructive',
+          onPress: () => leaveMatch({ userId, matchId: match.id }),
+        },
+      ],
+    );
+  };
 
   const confirmDeleteMatch = () => {
     if (!match || isDeleting || match.userId !== authService.getCurrentUser()?.uid) return;
@@ -125,8 +216,7 @@ export function MatchDetail({ route }: MatchDetailProps) {
           <MatchInformation
             key={match.id}
             match={match}
-            mockJoined={mockJoined}
-            isHost={match.userId === authService.getCurrentUser()?.uid}
+            isHost={match.userId === userId}
             isDeleting={isDeleting}
             onDelete={confirmDeleteMatch}
           />
@@ -135,8 +225,10 @@ export function MatchDetail({ route }: MatchDetailProps) {
       {match && !isLoading && !isError ? (
         <JoinMatchFooter
           match={match}
-          mockJoined={mockJoined}
-          onJoin={() => setPreviewJoinedMatchId(matchId)}
+          isJoining={isJoining}
+          isLeaving={isLeaving}
+          onJoin={confirmJoinMatch}
+          onLeave={confirmLeaveMatch}
         />
       ) : null}
     </SafeAreaView>
@@ -145,13 +237,11 @@ export function MatchDetail({ route }: MatchDetailProps) {
 
 function MatchInformation({
   match,
-  mockJoined,
   isHost,
   isDeleting,
   onDelete,
 }: {
   match: FoundMatch;
-  mockJoined: boolean;
   isHost: boolean;
   isDeleting: boolean;
   onDelete: () => void;
@@ -188,17 +278,10 @@ function MatchInformation({
   const startDate = match.startsAt.toDate();
   const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
   const hostName = match.hostName?.trim() || 'Match host';
-  const joinedCount =
-    new Set((match.members ?? []).filter((id) => id !== match.userId)).size + Number(mockJoined);
-  const spots = Math.max(0, match.playersNeeded - Number(mockJoined));
+  const joinedCount = new Set((match.members ?? []).filter((id) => id !== match.userId)).size;
+  const spots = Math.max(0, match.playersNeeded);
   const hasStarted = startDate.getTime() <= Date.now();
-  const statusLabel = mockJoined
-    ? 'Joined · preview'
-    : hasStarted
-      ? 'Match started'
-      : spots > 0
-        ? 'Open match'
-        : 'Match full';
+  const statusLabel = hasStarted ? 'Match started' : spots > 0 ? 'Open match' : 'Match full';
   const courtTypeLabel = {
     public_outdoor: 'Public outdoor',
     public_indoor: 'Public indoor',
@@ -217,8 +300,10 @@ function MatchInformation({
         : `https://www.google.com/maps/dir/?api=1&destination=${query}`;
     try {
       await Linking.openURL(url);
-    } catch {
-      Alert.alert('Could not open maps', 'Please try again.');
+    } catch (error) {
+      new SwingInternalServerError('We couldn’t open maps. Please try again.', {
+        cause: error,
+      }).showAlert();
     }
   };
 
@@ -241,12 +326,20 @@ function MatchInformation({
         </View>
         <Text style={styles.matchTitle}>{match.matchName}</Text>
         <View style={styles.heroLocation}>
-          <MaterialCommunityIcons name="map-marker-outline" size={18} color={Theme.ON_PRIMARY_MUTED} />
+          <MaterialCommunityIcons
+            name="map-marker-outline"
+            size={18}
+            color={Theme.ON_PRIMARY_MUTED}
+          />
           <Text style={styles.heroSubtitle}>{court.name}</Text>
         </View>
         <View style={styles.heroTags}>
           <View style={styles.heroTag}>
-            <MaterialCommunityIcons name="trophy-outline" size={14} color={Theme.ON_PRIMARY_MUTED} />
+            <MaterialCommunityIcons
+              name="trophy-outline"
+              size={14}
+              color={Theme.ON_PRIMARY_MUTED}
+            />
             <Text style={styles.heroTagText}>{match.gameType || sportLabel}</Text>
           </View>
           <View style={styles.heroTag}>
@@ -272,7 +365,11 @@ function MatchInformation({
               }).format(startDate)}
             </Text>
             <View style={styles.inlineRow}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color={Theme.ON_PRIMARY_MUTED} />
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={16}
+                color={Theme.ON_PRIMARY_MUTED}
+              />
               <Text style={styles.timeText}>
                 {new Intl.DateTimeFormat('en-US', {
                   hour: 'numeric',
@@ -408,12 +505,6 @@ function MatchInformation({
               <Text style={styles.hostText}>HOST</Text>
             </View>
           </View>
-          {mockJoined ? (
-            <View style={styles.rosterSummary} accessibilityLiveRegion="polite">
-              <MaterialCommunityIcons name="check-circle-outline" size={20} color={Theme.PRIMARY} />
-              <Text style={styles.distanceText}>You joined · preview only</Text>
-            </View>
-          ) : null}
           {joinedCount > 0 ? (
             <View style={styles.rosterSummary}>
               <MaterialCommunityIcons
@@ -455,6 +546,7 @@ function MatchInformation({
           disabled={isDeleting}
           onPress={onDelete}
           textColor="#B54747"
+          style={styles.deleteButton}
           contentStyle={styles.buttonContent}
           accessibilityLabel="Delete match"
           accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
@@ -468,12 +560,16 @@ function MatchInformation({
 
 function JoinMatchFooter({
   match,
-  mockJoined,
+  isJoining,
+  isLeaving,
   onJoin,
+  onLeave,
 }: {
   match: FoundMatch;
-  mockJoined: boolean;
+  isJoining: boolean;
+  isLeaving: boolean;
   onJoin: () => void;
+  onLeave: () => void;
 }) {
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -483,22 +579,23 @@ function JoinMatchFooter({
   const isMember = (match.members ?? []).includes(userId ?? '');
   const hasStarted = match.startsAt.toMillis() <= Date.now();
   const isFull = match.playersNeeded <= 0;
-  const canJoin = !isHost && !isMember && !mockJoined && !hasStarted && !isFull;
+  const canJoin = !isHost && !isMember && !hasStarted && !isFull;
+  const canLeave = !isHost && isMember;
+  const isPending = isJoining || isLeaving;
+  const isDisabled = (!canJoin && !canLeave) || isPending;
   const title = isHost
     ? 'You’re hosting'
-    : mockJoined
-      ? 'You’re in!'
-      : isMember
-        ? 'You’re on the list'
-        : hasStarted
-          ? 'Match has started'
-          : isFull
-            ? 'This match is full'
-            : 'Ready to play?';
+    : isMember
+      ? 'You’re on the list'
+      : hasStarted
+        ? 'Match has started'
+        : isFull
+          ? 'This match is full'
+          : 'Ready to play?';
   const buttonLabel = isHost
     ? 'Your match'
-    : mockJoined || isMember
-      ? 'Joined'
+    : isMember
+      ? 'Leave match'
       : hasStarted
         ? 'Joining closed'
         : isFull
@@ -517,42 +614,28 @@ function JoinMatchFooter({
             <Text style={styles.joinSubtitle}>
               {isHost || isMember
                 ? 'See you at the court.'
-                : mockJoined
-                  ? 'Demo join complete.'
-                  : canJoin
-                    ? `${match.playersNeeded} ${match.playersNeeded === 1 ? 'spot' : 'spots'} available`
-                    : 'Explore other matches to play.'}
+                : canJoin
+                  ? `${match.playersNeeded} ${match.playersNeeded === 1 ? 'spot' : 'spots'} available`
+                  : 'Explore other matches to play.'}
             </Text>
           </View>
           <Button
             mode="contained"
-            icon={
-              isHost
-                ? 'account-star-outline'
-                : mockJoined || isMember
-                  ? 'check-circle-outline'
-                  : 'account-plus-outline'
-            }
-            onPress={onJoin}
-            disabled={!canJoin}
-            buttonColor={Theme.PRIMARY}
+            icon={isHost ? 'account-star-outline' : isMember ? 'exit-run' : 'account-plus-outline'}
+            onPress={canLeave ? onLeave : onJoin}
+            loading={isPending}
+            disabled={isDisabled}
+            buttonColor={canLeave ? '#B54747' : Theme.PRIMARY}
             textColor={Theme.SURFACE}
-            style={[
-              styles.joinButton,
-              isCompact && styles.joinButtonFullWidth,
-              mockJoined && styles.joinedButton,
-            ]}
-            labelStyle={mockJoined ? styles.joinedLabel : styles.joinButtonLabel}
+            style={[styles.joinButton, isCompact && styles.joinButtonFullWidth]}
+            labelStyle={styles.joinButtonLabel}
             contentStyle={styles.joinButtonContent}
-            accessibilityLabel={canJoin ? 'Join match preview' : buttonLabel}
-            accessibilityState={{ disabled: !canJoin }}
+            accessibilityLabel={buttonLabel}
+            accessibilityState={{ disabled: isDisabled, busy: isPending }}
           >
-            {buttonLabel}
+            {isLeaving ? 'Leaving…' : isJoining ? 'Joining…' : buttonLabel}
           </Button>
         </View>
-        {canJoin || mockJoined ? (
-          <Text style={styles.previewCaption}>Preview only · no real spot is reserved</Text>
-        ) : null}
       </View>
     </View>
   );
@@ -685,7 +768,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroHostInitials: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
-  heroCaption: { flex: 1, color: Theme.ON_PRIMARY_MUTED, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  heroCaption: {
+    flex: 1,
+    color: Theme.ON_PRIMARY_MUTED,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
   card: {
     backgroundColor: Theme.SURFACE,
     borderWidth: 1,
@@ -753,6 +842,7 @@ const styles = StyleSheet.create({
   secondaryText: { flexShrink: 1, color: Theme.SUB_TEXT_COLOR, fontSize: 13, lineHeight: 20 },
   distanceText: { color: Theme.PRIMARY, fontSize: 13, fontWeight: '600' },
   directionsButton: { marginTop: 6, borderRadius: 12, borderColor: Theme.PRIMARY_BORDER },
+  deleteButton: { alignSelf: 'center', minWidth: 0 },
   buttonContent: { minHeight: 46 },
   sectionHeadingRow: {
     flexDirection: 'row',
@@ -822,13 +912,4 @@ const styles = StyleSheet.create({
   joinButtonFullWidth: { width: '100%' },
   joinButtonContent: { minHeight: 52, paddingHorizontal: 8 },
   joinButtonLabel: { fontSize: 15, fontWeight: '700' },
-  joinedButton: { backgroundColor: '#E5F4EE' },
-  joinedLabel: { color: '#247A5C', fontSize: 15, fontWeight: '700' },
-  previewCaption: {
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: 10,
-  },
 });

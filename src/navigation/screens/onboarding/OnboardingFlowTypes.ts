@@ -12,6 +12,8 @@ export type SearchCriteria =
   | {
       type: 'Manual';
       label: string;
+      latitude?: number;
+      longitude?: number;
     };
 
 export type SkillLevel = 'Beginner' | 'Casual' | 'Intermediate' | 'Advanced' | 'Competitive';

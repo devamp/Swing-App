@@ -1,3 +1,4 @@
+import { SwingError } from './errorService';
 import { CourtLocation } from '../types';
 import { Database } from './firebase';
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
@@ -10,7 +11,7 @@ class CourtService {
       return snapshot.docs.map((court) => court.data() as CourtLocation);
     } catch (error) {
       console.error('Error loading courts: ', error);
-      throw error;
+      throw SwingError.parse(error);
     }
   }
 }

@@ -64,6 +64,18 @@ npm run verify
 
 Firebase sessions persist across app restarts using AsyncStorage on native and Firebase's default browser storage on web. Startup waits for Firebase to restore credentials before showing a screen. Users who signed in within the last 30 days open the dashboard; older sessions are signed out and open Landing. The window is configured by `SESSION_MAX_AGE_MS` in `src/services/authService.ts`. Logging out or deleting an account clears the Firebase session.
 
+## Error handling
+
+Use `SwingBadRequestError`, `SwingNotFoundError`, or `SwingInternalServerError` from `src/services/errorService.ts` for app errors. Give them a message suitable for users:
+
+```ts
+throw new SwingBadRequestError('Choose a match start time in the future.');
+```
+
+In a screen's catch or mutation error handler, call `SwingError.showAlert(error)` to parse the error and show its header and message using React Native's native `Alert`. `SwingError.parse(error)` returns the typed error without showing anything, so it can be used in services or inline error states. Constructors do not show alerts, which keeps query retries from opening duplicate popups.
+
+The parser handles Firebase codes, network failures, timeouts, HTTP statuses, and unknown thrown values. Unexpected errors use friendly fallback copy; the original error is kept as `cause`. Informational and confirmation dialogs use `Alert.alert` directly. Run `npm test` to check parsing and native alert calls with the native bridge mocked.
+
 ## Notes
 
 This project uses a [development build](https://docs.expo.dev/develop/development-builds/introduction/) and cannot be run with [Expo Go](https://expo.dev/go). To run the app with Expo Go, edit the `package.json` file, remove the `expo-dev-client` package and `--dev-client` flag from the `start` script.

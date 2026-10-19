@@ -1,3 +1,4 @@
+import { SwingError } from './errorService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FirebaseApp } from 'firebase/app';
 import { getAuth, initializeAuth } from 'firebase/auth';
@@ -15,6 +16,6 @@ export function initializeFirebaseAuth(app: FirebaseApp) {
     if ((error as { code?: string }).code === 'auth/already-initialized') {
       return getAuth(app);
     }
-    throw error;
+    throw SwingError.parse(error);
   }
 }
