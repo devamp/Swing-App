@@ -18,10 +18,12 @@ import { Onboarding } from './screens/onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
 import { Login } from './screens/Login';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/unstable';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import Theme from '../theme';
+import { usesNativeTabs } from './nativeTabs';
 
-const HomeTabs = createBottomTabNavigator({
+const LegacyHomeTabs = createBottomTabNavigator({
   screenOptions: {
     headerShown: false,
     animation: 'shift',
@@ -73,6 +75,49 @@ const HomeTabs = createBottomTabNavigator({
     },
   },
 });
+
+// UIKit supplies the floating Liquid Glass bar and its native interactions.
+// Only create the native navigator on supported iOS versions (it throws on web).
+const HomeTabs = usesNativeTabs
+  ? createNativeBottomTabNavigator({
+      screenOptions: {
+        headerShown: false,
+        lazy: true,
+        tabBarActiveTintColor: Theme.PRIMARY,
+      },
+      screens: {
+        Dashboard: {
+          screen: Dashboard,
+          options: {
+            tabBarLabel: 'Dashboard',
+            tabBarIcon: ({ focused }) => ({
+              type: 'sfSymbol',
+              name: focused ? 'square.grid.2x2.fill' : 'square.grid.2x2',
+            }),
+          },
+        },
+        FindMatches: {
+          screen: FindMatches,
+          options: {
+            tabBarLabel: 'Play Map',
+            tabBarIcon: ({ focused }) => ({
+              type: 'sfSymbol',
+              name: focused ? 'map.fill' : 'map',
+            }),
+          },
+        },
+        Profile: {
+          screen: Profile,
+          options: {
+            tabBarIcon: ({ focused }) => ({
+              type: 'sfSymbol',
+              name: focused ? 'tennisball.fill' : 'tennisball',
+            }),
+          },
+        },
+      },
+    })
+  : LegacyHomeTabs;
 
 const RootStack = createNativeStackNavigator({
   screens: {

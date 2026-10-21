@@ -32,6 +32,7 @@ import type {
 import { userService } from '../../../services/userService';
 import { Database } from '../../../services/firebase';
 import Theme from '../../../theme';
+import { usesNativeTabs } from '../../nativeTabs';
 import { getPlayerInitials } from '../../../utils';
 import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
 import { SwingBadRequestError, SwingError, SwingNotFoundError } from '../../../services/errorService';
@@ -558,6 +559,7 @@ export function Profile() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <CourtBackground />
       <ScrollView
+        contentInsetAdjustmentBehavior={usesNativeTabs ? 'automatic' : 'never'}
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

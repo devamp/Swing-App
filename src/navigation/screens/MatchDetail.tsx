@@ -273,11 +273,13 @@ function MatchInformation({
     latitude: court.courtLocation?.latitude ?? court.latitude,
     longitude: court.courtLocation?.longitude ?? court.longitude,
   };
+  const userId = authService.getCurrentUser()?.uid;
   const coordinate = hasCoordinates(rawCoordinate) ? rawCoordinate : null;
   const distance = withViewerDistance(match, userLocation).matchCourtLocation.distanceMiles;
   const startDate = match.startsAt.toDate();
   const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
   const hostName = match.hostName?.trim() || 'Match host';
+  const members = new Set(match.members ?? []);
   const joinedCount = new Set((match.members ?? []).filter((id) => id !== match.userId)).size;
   const spots = Math.max(0, match.playersNeeded);
   const hasStarted = startDate.getTime() <= Date.now();
@@ -513,7 +515,9 @@ function MatchInformation({
                 color={Theme.PRIMARY}
               />
               <Text style={styles.secondaryText}>
-                {joinedCount} {joinedCount === 1 ? 'player has' : 'players have'} joined
+                {members.has(userId!)
+                  ? 'You have joined this match'
+                  : `${joinedCount} ${joinedCount === 1 ? 'player has' : 'players have'} joined`}
               </Text>
             </View>
           ) : null}

@@ -27,6 +27,7 @@ import { matchService } from '../../../services';
 import { authService } from '../../../services/authService';
 import { userService } from '../../../services/userService';
 import Theme from '../../../theme';
+import { usesNativeTabs } from '../../nativeTabs';
 import type { User } from '../../../types';
 import { Section } from '../../../utils';
 
@@ -189,6 +190,7 @@ export function Home() {
         <ActivityIndicator color={Theme.PRIMARY} />
       ) : (
         <ScrollView
+          contentInsetAdjustmentBehavior={usesNativeTabs ? 'automatic' : 'never'}
           style={Theme.styles.scrollView}
           contentContainerStyle={[Theme.styles.scrollContent, styles.scrollContent]}
           showsVerticalScrollIndicator={false}

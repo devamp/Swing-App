@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import type { FoundMatch } from '../services/matchService/types';
 import Theme from '../theme';
 import UpcomingMatchArtwork from './UpcomingMatchArtwork';
+import { authService } from '../services';
 
 type MatchCardProps = {
   match: FoundMatch;
@@ -49,6 +50,8 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
   const spots = Math.max(0, match.playersNeeded);
   const playersNeededLabel =
     spots > 0 ? `${spots} ${spots === 1 ? 'spot' : 'spots'} open` : 'Match full';
+  const hostId = match.userId;
+  const userId = authService.getCurrentUser()?.uid;
 
   return (
     <Pressable
@@ -66,10 +69,16 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
         <View style={styles.matchSummary}>
           <Text style={styles.headerSport}>{sportLabel}</Text>
           {match.gameType ? <Text style={styles.headerGameType}>{match.gameType}</Text> : null}
-          <View style={styles.hostingBadge}>
-            <MaterialCommunityIcons name="account-star" size={12} color={Theme.ON_PRIMARY_MUTED} />
-            <Text style={styles.hostingText}>Hosting</Text>
-          </View>
+          {hostId === userId ? (
+            <View style={styles.hostingBadge}>
+              <MaterialCommunityIcons
+                name="account-star"
+                size={12}
+                color={Theme.ON_PRIMARY_MUTED}
+              />
+              <Text style={styles.hostingText}>Hosting</Text>
+            </View>
+          ) : null}
         </View>
         {fontScale < 1.3 ? <UpcomingMatchArtwork sport={match.sport} /> : null}
       </View>
