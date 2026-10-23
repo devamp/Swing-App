@@ -134,6 +134,27 @@ class MatchService {
     }));
   }
 
+  async getMatchesForUser(userId: string): Promise<FoundMatch[]> {
+    try {
+      if (!userId) throw new SwingBadRequestError('Please sign in to view your matches.');
+      const snapshot = await getDocsFromServer(
+        query(
+          collection(Database, 'Matches'),
+          or(where('userId', '==', userId), where('members', 'array-contains', userId)),
+        ),
+      );
+      return snapshot.docs
+        .map((matchDocument) => ({
+          ...(matchDocument.data() as Omit<FoundMatch, 'id'>),
+          id: matchDocument.id,
+        }))
+        .sort((first, second) => first.startsAt.toMillis() - second.startsAt.toMillis());
+    } catch (error) {
+      console.error('Error getting user matches: ', error);
+      throw SwingError.parse(error);
+    }
+  }
+
   // Find all matches that match a certain criteria
   async findMatches({
     filter,

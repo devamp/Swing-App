@@ -36,7 +36,11 @@ import Theme from '../../../theme';
 import { usesNativeTabs } from '../../nativeTabs';
 import { getPlayerInitials } from '../../../utils';
 import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
-import { SwingBadRequestError, SwingError, SwingNotFoundError } from '../../../services/errorService';
+import {
+  SwingBadRequestError,
+  SwingError,
+  SwingNotFoundError,
+} from '../../../services/errorService';
 import { AppAlert } from '../../../services/alertService';
 
 type UserDocument = {
@@ -60,7 +64,7 @@ const AVAILABILITY_OPTIONS = [
 ];
 
 // TODO: Replace with match queries once joined/hosted match reads are available.
-const EMPTY_MATCH_ACTIVITY: MatchActivity = { upcoming: 0, joined: 0, hosted: 0 };
+const EMPTY_MATCH_ACTIVITY: MatchActivity = { completed: 0, joined: 0, hosted: 0 };
 
 function normalizeSkillLevel(value?: string): ProfileSkillLevel | undefined {
   if (value === 'Intermediate' || value === 'Advanced' || value === 'Beginner') return value;
@@ -503,7 +507,11 @@ export function Profile() {
       'Delete account?',
       'This permanently removes your Swing profile and cannot be undone.',
       [
-        { text: 'Delete account', style: 'destructive', onPress: () => setDeleteConfirmationVisible(true) },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => setDeleteConfirmationVisible(true),
+        },
         { text: 'Cancel', style: 'cancel' },
       ],
     );
@@ -522,9 +530,7 @@ export function Profile() {
         <CourtBackground />
         <MaterialCommunityIcons name="account-alert-outline" size={48} color={Theme.PRIMARY} />
         <Text style={styles.stateTitle}>We couldn’t load your profile</Text>
-        <Text style={styles.stateCopy}>
-          {SwingError.parse(profileQuery.error).message}
-        </Text>
+        <Text style={styles.stateCopy}>{SwingError.parse(profileQuery.error).message}</Text>
         <Button mode="contained" onPress={() => profileQuery.refetch()} buttonColor={Theme.PRIMARY}>
           Retry
         </Button>
@@ -671,15 +677,15 @@ export function Profile() {
           </View>
         </SectionCard>
 
-        <SectionCard title="Match Activity">
+        <SectionCard title="Match Stats">
           <View style={styles.activityRow}>
             <ActivityItem
-              icon="calendar-clock"
-              count={activity.upcoming}
-              label="Upcoming"
+              icon="account-check-outline"
+              count={activity.completed}
+              label="Completed"
               onPress={() => navigation.navigate('Home', { screen: 'Dashboard' })}
             />
-            <ActivityItem icon="account-check-outline" count={activity.joined} label="Joined" />
+            <ActivityItem icon="account-multiple-outline" count={activity.joined} label="Joined" />
             <ActivityItem icon="whistle-outline" count={activity.hosted} label="Hosted" />
           </View>
         </SectionCard>

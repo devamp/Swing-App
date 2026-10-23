@@ -10,3 +10,4 @@ export { Profile } from './BottomNavBar/Profile';
 export { FindMatches } from './BottomNavBar/FindMatches';
 export { CreateMatch } from './CreateMatch';
 export { MatchDetail } from './MatchDetail';
+export { MyMatches } from './MyMatches';

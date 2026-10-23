@@ -57,7 +57,7 @@ export type PreferredGameType = 'Singles' | 'Doubles' | 'Both';
 export type ProfilePlayStyle = 'Casual' | 'Competitive' | 'Both';
 
 export type MatchActivity = {
-  upcoming: number;
+  completed: number;
   joined: number;
   hosted: number;
 };

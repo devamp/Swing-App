@@ -21,7 +21,7 @@ class UserService {
         },
         profile: {
           matchActivity: {
-            upcoming: 0,
+            completed: 0,
             joined: 0,
             hosted: 0,
           },
@@ -77,7 +77,8 @@ class UserService {
     try {
       await deleteObject(ref(Storage, `profilePhotos/${userId}/avatar.jpg`));
     } catch (error: unknown) {
-      if ((error as { code?: string }).code !== 'storage/object-not-found') throw SwingError.parse(error);
+      if ((error as { code?: string }).code !== 'storage/object-not-found')
+        throw SwingError.parse(error);
     }
     await deleteDoc(doc(Database, 'Users', userId));
   }

@@ -23,7 +23,6 @@ import { UpcomingMatchCard } from '../../../components/MatchCards';
 import NearbyMatchCard from '../../../components/NearbyMatchCard';
 import HomeHeader from '../../../components/HomeHeader';
 import { matchService } from '../../../services';
-import { AppAlert } from '../../../services/alertService';
 import { authService } from '../../../services/authService';
 import { userService } from '../../../services/userService';
 import Theme from '../../../theme';
@@ -233,15 +232,7 @@ export function Home() {
               {(
                 [
                   ['Create Match', 'plus', openCreateMatch],
-                  [
-                    'My Matches',
-                    'calendar-outline',
-                    () =>
-                      AppAlert.alert(
-                        'My Matches',
-                        'Your match list is not available yet. Your next hosted match appears above.',
-                      ),
-                  ],
+                  ['My Matches', 'calendar-outline', () => navigation.navigate('MyMatches')],
                   ['Explore Map', 'map-search-outline', openPlayMap],
                 ] as const
               ).map(([label, icon, onPress]) => (

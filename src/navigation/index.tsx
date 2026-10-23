@@ -13,6 +13,7 @@ import {
   FindMatches,
   CreateMatch,
   MatchDetail,
+  MyMatches,
 } from './screens';
 import { Onboarding } from './screens/onboarding/Onboarding';
 import { SignUp } from './screens/SignUp';
@@ -196,6 +197,12 @@ const RootStack = createNativeStackNavigator({
     },
     MatchDetail: {
       screen: MatchDetail,
+      options: {
+        headerShown: false,
+      },
+    },
+    MyMatches: {
+      screen: MyMatches,
       options: {
         headerShown: false,
       },

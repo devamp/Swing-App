@@ -18,6 +18,11 @@ import MapView, { Marker, type LatLng } from 'react-native-maps';
 import { ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CourtBackground from '../../components/CourtBackground';
+import MatchActionAnimation, {
+  type MatchActionFeedback,
+} from '../../components/MatchActionAnimation';
+import MatchPlayerAvatar from '../../components/MatchPlayerAvatar';
+import { useToast } from '../../components/ToastProvider';
 import { formatSkillLevel, getRelativeDateLabel } from '../../components/MatchCards';
 import { AppAlert, matchService } from '../../services';
 import { authService } from '../../services/authService';
@@ -36,6 +41,10 @@ type MatchDetailProps = StaticScreenProps<{ matchId: string }>;
 export function MatchDetail({ route }: MatchDetailProps) {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [actionFeedback, setActionFeedback] = useState<
+    (MatchActionFeedback & { matchId: string }) | undefined
+  >();
   const { matchId } = route.params;
   const userId = authService.getCurrentUser()?.uid;
 
@@ -58,7 +67,13 @@ export function MatchDetail({ route }: MatchDetailProps) {
     mutationFn: (id: string) => matchService.deleteMatchById(id),
     onSuccess: () => {
       queryClient.setQueryData(['matchDetail', matchId], null);
-      for (const key of ['upcomingMatch', 'dashboardDiscovery', 'loadInitialUser', 'profile']) {
+      for (const key of [
+        'upcomingMatch',
+        'myMatches',
+        'dashboardDiscovery',
+        'loadInitialUser',
+        'profile',
+      ]) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
       goBack();
@@ -80,13 +95,21 @@ export function MatchDetail({ route }: MatchDetailProps) {
           playersNeeded: Math.max(0, cachedMatch.playersNeeded - 1),
         };
       });
-      for (const key of ['upcomingMatch', 'dashboardDiscovery', 'loadInitialUser', 'profile']) {
+      for (const key of [
+        'upcomingMatch',
+        'myMatches',
+        'dashboardDiscovery',
+        'loadInitialUser',
+        'profile',
+      ]) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
-      AppAlert.alert(
-        "You're in!",
-        "We'll let the host know, you just worry about bringing your A game",
-      );
+      setActionFeedback((previous) => ({
+        matchId,
+        sequence: (previous?.sequence ?? 0) + 1,
+        action: 'join',
+      }));
+      showToast("You're in!", "We'll let the host know about your interest.");
     },
     onError: (error) => SwingError.showAlert(error),
   });
@@ -111,10 +134,15 @@ export function MatchDetail({ route }: MatchDetailProps) {
           exact: true,
           refetchType: 'all',
         }),
-        ...['dashboardDiscovery', 'loadInitialUser', 'profile'].map((key) =>
+        ...['myMatches', 'dashboardDiscovery', 'loadInitialUser', 'profile'].map((key) =>
           queryClient.invalidateQueries({ queryKey: [key] }),
         ),
       ]);
+      setActionFeedback((previous) => ({
+        matchId,
+        sequence: (previous?.sequence ?? 0) + 1,
+        action: 'leave',
+      }));
     },
     onError: (error) => SwingError.showAlert(error),
   });
@@ -223,7 +251,9 @@ export function MatchDetail({ route }: MatchDetailProps) {
       </ScrollView>
       {match && !isLoading && !isError ? (
         <JoinMatchFooter
+          key={match.id}
           match={match}
+          actionFeedback={actionFeedback?.matchId === match.id ? actionFeedback : undefined}
           isJoining={isJoining}
           isLeaving={isLeaving}
           onJoin={confirmJoinMatch}
@@ -491,9 +521,7 @@ function MatchInformation({
         </View>
         <View style={[styles.card, styles.playersCard]}>
           <View style={styles.playerRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getPlayerInitials(hostName) || '?'}</Text>
-            </View>
+            <MatchPlayerAvatar player={{ id: match.userId, name: hostName }} size={44} />
             <View style={styles.flexCopy}>
               <Text style={styles.playerName}>
                 {hostName}
@@ -563,12 +591,14 @@ function MatchInformation({
 
 function JoinMatchFooter({
   match,
+  actionFeedback,
   isJoining,
   isLeaving,
   onJoin,
   onLeave,
 }: {
   match: FoundMatch;
+  actionFeedback?: MatchActionFeedback;
   isJoining: boolean;
   isLeaving: boolean;
   onJoin: () => void;
@@ -622,22 +652,30 @@ function JoinMatchFooter({
                   : 'Explore other matches to play.'}
             </Text>
           </View>
-          <Button
-            mode="contained"
-            icon={isHost ? 'account-star-outline' : isMember ? 'exit-run' : 'account-plus-outline'}
-            onPress={canLeave ? onLeave : onJoin}
-            loading={isPending}
-            disabled={isDisabled}
-            buttonColor={canLeave ? '#B54747' : Theme.PRIMARY}
-            textColor={Theme.SURFACE}
-            style={[styles.joinButton, isCompact && styles.joinButtonFullWidth]}
-            labelStyle={styles.joinButtonLabel}
-            contentStyle={styles.joinButtonContent}
-            accessibilityLabel={buttonLabel}
-            accessibilityState={{ disabled: isDisabled, busy: isPending }}
+          <MatchActionAnimation
+            feedback={actionFeedback}
+            isPending={isPending}
+            fullWidth={isCompact}
           >
-            {isLeaving ? 'Leaving…' : isJoining ? 'Joining…' : buttonLabel}
-          </Button>
+            <Button
+              mode="contained"
+              icon={
+                isHost ? 'account-star-outline' : isMember ? 'exit-run' : 'account-plus-outline'
+              }
+              onPress={canLeave ? onLeave : onJoin}
+              loading={isPending}
+              disabled={isDisabled}
+              buttonColor={canLeave ? '#B54747' : Theme.PRIMARY}
+              textColor={Theme.SURFACE}
+              style={[styles.joinButton, isCompact && styles.joinButtonFullWidth]}
+              labelStyle={styles.joinButtonLabel}
+              contentStyle={styles.joinButtonContent}
+              accessibilityLabel={buttonLabel}
+              accessibilityState={{ disabled: isDisabled, busy: isPending }}
+            >
+              {isLeaving ? 'Leaving…' : isJoining ? 'Joining…' : buttonLabel}
+            </Button>
+          </MatchActionAnimation>
         </View>
       </View>
     </View>
@@ -859,15 +897,6 @@ const styles = StyleSheet.create({
   playerCount: { color: Theme.PRIMARY, fontSize: 12, fontWeight: '700' },
   playersCard: { padding: 18 },
   playerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: Theme.PRIMARY_LIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: Theme.PRIMARY, fontSize: 16, fontWeight: '800' },
   playerName: { color: Theme.TEXT, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   playerRole: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, marginTop: 3 },
   hostBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -767,6 +767,7 @@ export function CreateMatch() {
       });
       // Refresh the destination without delaying successful navigation on a refetch.
       void queryClient.invalidateQueries({ queryKey: ['upcomingMatch'] });
+      void queryClient.invalidateQueries({ queryKey: ['myMatches'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboardDiscovery'] });
       if (navigation.canGoBack()) navigation.goBack();
       else navigation.navigate('Home');
@@ -1001,7 +1002,7 @@ export function CreateMatch() {
               multiline
               maxLength={180}
               onChangeText={(note) => updateForm('note', note)}
-              placeholder="Example: Looking for 1–2 intermediate players for casual doubles."
+              placeholder="I've booked court 3, let's plan to meet there directly"
               placeholderTextColor="#9CA3AF"
               style={styles.noteInput}
               textAlignVertical="top"
