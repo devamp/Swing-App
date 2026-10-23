@@ -11,6 +11,9 @@ import { PaperProvider } from 'react-native-paper';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Theme from './theme';
 import { authService } from './services/authService';
+import AppAlertHost from './components/AppAlertHost';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { ToastProvider } from './components/ToastProvider';
 
 // Keep native controls (including Apple Maps) light in existing development builds too.
 Appearance.setColorScheme('light');
@@ -82,22 +85,27 @@ export function App() {
   if (!startup || !iconsLoaded) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <PaperProvider theme={Theme.paperTheme}>
-        <Navigation
-          initialState={
-            startup.hasDeepLink ? undefined : { index: 0, routes: [{ name: startup.route }] }
-          }
-          theme={navigationTheme}
-          linking={{
-            enabled: 'auto',
-            prefixes: [prefix],
-          }}
-          onReady={() => {
-            SplashScreen.hideAsync();
-          }}
-        />
-      </PaperProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <QueryClientProvider client={queryClient}>
+        <PaperProvider theme={Theme.paperTheme}>
+          <ToastProvider>
+            <Navigation
+              initialState={
+                startup.hasDeepLink ? undefined : { index: 0, routes: [{ name: startup.route }] }
+              }
+              theme={navigationTheme}
+              linking={{
+                enabled: 'auto',
+                prefixes: [prefix],
+              }}
+              onReady={() => {
+                SplashScreen.hideAsync();
+              }}
+            />
+            <AppAlertHost />
+          </ToastProvider>
+        </PaperProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

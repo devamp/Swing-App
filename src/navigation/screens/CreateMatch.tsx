@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -28,6 +27,8 @@ import { Button, Searchbar } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE, type LatLng, type Region } from 'react-native-maps';
 import SelectableChip from '../../components/SelectableChip';
+import { UpcomingMatchCard } from '../../components/MatchCards';
+import { useToast } from '../../components/ToastProvider';
 import Theme from '../../theme';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService, courtService, matchService, SwingError } from '../../services';
@@ -237,58 +238,29 @@ function PlayerStepper({ value, onChange }: { value: number; onChange: (value: n
 }
 
 function PreviewMatchCard({ form }: { form: CreateMatchForm }) {
-  const skillLabel = SKILL_LEVELS.find(({ value }) => value === form.skillLevel)?.label;
-  const dateTime = [form.dateLabel, form.timeLabel].filter(Boolean).join(' · ');
-  const details = [
-    { icon: 'calendar-outline' as const, label: dateTime || 'Date and time not selected' },
-    { icon: 'map-marker-outline' as const, label: form.location?.name || 'Location not selected' },
-    { icon: 'signal-cellular-2' as const, label: skillLabel ?? 'Any Skill' },
-    { icon: 'flag-outline' as const, label: form.gameType ?? 'Game type not selected' },
-    {
-      icon: 'account-group-outline' as const,
-      label: `${form.playersNeeded} ${form.playersNeeded === 1 ? 'player' : 'players'} needed`,
-    },
-  ];
-
-  const { data: authUser } = useQuery({
-    queryKey: ['getAuthUser'],
-    queryFn: () => authService.getCurrentUser(),
-  });
-
+  const user = authService.getCurrentUser();
+  const startsAt = combineMatchDateAndTime(form.matchDate, form.matchTime);
+  const badgeDate = startsAt ?? form.matchDate;
   return (
-    <View style={styles.previewCard}>
-      <View style={styles.previewTopRow}>
-        <View style={styles.previewSportIcon}>
-          <MaterialCommunityIcons
-            name={form.sport === 'pickleball' ? 'table-tennis' : 'tennis'}
-            size={24}
-            color={Theme.PRIMARY}
-          />
-        </View>
-        <View style={styles.previewHeading}>
-          <Text style={styles.previewTitle} numberOfLines={1}>
-            {form.matchName || `${authUser?.displayName}'s Match`}
-          </Text>
-          <Text style={styles.previewSubtitle}>
-            {form.sport
-              ? `${form.sport === 'tennis' ? 'Tennis' : 'Pickleball'} match`
-              : 'Choose a sport'}
-          </Text>
-        </View>
-        {form.gameType ? (
-          <View style={styles.gameBadge}>
-            <Text style={styles.gameBadgeText}>{form.gameType}</Text>
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.previewDivider} />
-      {details.map((detail) => (
-        <View key={detail.icon} style={styles.previewDetailRow}>
-          <MaterialCommunityIcons name={detail.icon} size={17} color={Theme.PRIMARY} />
-          <Text style={styles.previewDetailText}>{detail.label}</Text>
-        </View>
-      ))}
-    </View>
+    <UpcomingMatchCard
+      match={{
+        matchName:
+          form.matchName.trim() ||
+          (user?.displayName ? `${user.displayName}'s Match` : 'Your Match'),
+        sport: form.sport,
+        gameType: form.gameType,
+        startsAt: badgeDate ? { toDate: () => badgeDate } : null,
+        skillLevel: form.skillLevel,
+        playersNeeded: form.playersNeeded,
+        userId: user?.uid ?? '',
+        matchCourtLocation: { name: form.location?.name || 'Choose a court or location' },
+      }}
+      dateTimeLabel={
+        startsAt
+          ? undefined
+          : `${form.dateLabel || 'Choose date'} · ${form.timeLabel || 'Choose time'}`
+      }
+    />
   );
 }
 
@@ -568,6 +540,7 @@ function TimePickerSheet({
 }
 
 export function CreateMatch() {
+  const { showToast } = useToast();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -792,10 +765,12 @@ export function CreateMatch() {
         note: form.note,
         matchName: form.matchName,
       });
-      await queryClient.invalidateQueries({ queryKey: ['upcomingMatch'] });
-      Alert.alert('Match posted', 'Nearby players can now find your match.', [
-        { text: 'Done', onPress: () => navigation.goBack() },
-      ]);
+      // Refresh the destination without delaying successful navigation on a refetch.
+      void queryClient.invalidateQueries({ queryKey: ['upcomingMatch'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboardDiscovery'] });
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.navigate('Home');
+      showToast('Match created', 'Nearby players can now find your match.');
     } catch (error) {
       SwingError.showAlert(error);
     } finally {
@@ -1037,7 +1012,9 @@ export function CreateMatch() {
 
           <View style={styles.previewSection}>
             <Text style={styles.previewSectionTitle}>Match preview</Text>
-            <Text style={styles.previewSectionSubtitle}>This is what nearby players will see.</Text>
+            <Text style={styles.previewSectionSubtitle}>
+              Your match will appear like this in Upcoming Match.
+            </Text>
             <PreviewMatchCard form={form} />
           </View>
         </ScrollView>
@@ -1154,33 +1131,40 @@ export function CreateMatch() {
                         <Text accessibilityLiveRegion="polite" style={styles.courtSuggestionEmpty}>
                           No courts found. Try a different name or address.
                         </Text>
-                      ) : visibleCourtLocations.map((court) => (
-                        <Pressable
-                          key={court.name}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Select ${court.name}${court.address ? `, ${court.address}` : ''}`}
-                          onPress={() => {
-                            setCourtSearchQuery(court.name);
-                            focusCourt(court);
-                          }}
-                          style={({ pressed }) => [styles.courtSuggestion, pressed && styles.pressed]}
-                        >
-                          <MaterialCommunityIcons
-                            name="map-marker-outline"
-                            size={22}
-                            color={Theme.PRIMARY}
-                          />
-                          <View style={styles.locationCopy}>
-                            <Text style={styles.modalLocationName}>{court.name}</Text>
-                            {court.address ? (
-                              <Text numberOfLines={1} style={styles.helperText}>{court.address}</Text>
-                            ) : null}
-                            <Text style={styles.helperText}>
-                              {formatCourtDetails(court, userLocation)}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      ))}
+                      ) : (
+                        visibleCourtLocations.map((court) => (
+                          <Pressable
+                            key={court.name}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Select ${court.name}${court.address ? `, ${court.address}` : ''}`}
+                            onPress={() => {
+                              setCourtSearchQuery(court.name);
+                              focusCourt(court);
+                            }}
+                            style={({ pressed }) => [
+                              styles.courtSuggestion,
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <MaterialCommunityIcons
+                              name="map-marker-outline"
+                              size={22}
+                              color={Theme.PRIMARY}
+                            />
+                            <View style={styles.locationCopy}>
+                              <Text style={styles.modalLocationName}>{court.name}</Text>
+                              {court.address ? (
+                                <Text numberOfLines={1} style={styles.helperText}>
+                                  {court.address}
+                                </Text>
+                              ) : null}
+                              <Text style={styles.helperText}>
+                                {formatCourtDetails(court, userLocation)}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ))
+                      )}
                     </ScrollView>
                   </View>
                 )}
@@ -1489,7 +1473,12 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   fieldLabel: { color: Theme.TEXT, fontSize: 15, fontWeight: '700', marginBottom: 9 },
   subField: { marginTop: 18 },
-  nearbyCourtSubtext: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  nearbyCourtSubtext: {
+    color: Theme.SUB_TEXT_COLOR,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
   helperText: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 18 },
   validationText: { color: Theme.SUB_TEXT_COLOR, fontSize: 12, lineHeight: 17, marginTop: 9 },
   locationCard: {
@@ -1602,47 +1591,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
     marginBottom: 11,
   },
-  previewCard: {
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: Theme.SURFACE,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    borderTopWidth: 4,
-    borderTopColor: Theme.PRIMARY,
-    shadowColor: Theme.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  previewTopRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  previewSportIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: PRIMARY_TINT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewHeading: { flex: 1 },
-  previewTitle: { color: Theme.TEXT, fontSize: 15, lineHeight: 20, fontWeight: '800' },
-  previewSubtitle: {
-    color: Theme.SUB_TEXT_COLOR,
-    fontSize: 13,
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  gameBadge: {
-    backgroundColor: PRIMARY_TINT,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  gameBadgeText: { color: Theme.PRIMARY, fontSize: 11, fontWeight: '800' },
-  previewDivider: { height: 1, backgroundColor: DIVIDER, marginVertical: 13 },
-  previewDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 7 },
-  previewDetailText: { flex: 1, color: Theme.SUB_TEXT_COLOR, fontSize: 13, lineHeight: 18 },
   footer: {
     backgroundColor: Theme.SURFACE,
     borderTopWidth: 1,

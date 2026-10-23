@@ -1,4 +1,4 @@
-import { Alert, type AlertButton, type AlertOptions } from 'react-native';
+import { AppAlert, type AppAlertButton, type AppAlertOptions } from './alertService';
 
 export type SwingErrorType = 'not-found' | 'internal-server' | 'bad-request';
 
@@ -195,12 +195,12 @@ export class SwingError extends Error {
     }
   }
 
-  static showAlert(error: unknown, buttons?: AlertButton[], options?: AlertOptions): void {
+  static showAlert(error: unknown, buttons?: AppAlertButton[], options?: AppAlertOptions): void {
     SwingError.parse(error).showAlert(buttons, options);
   }
 
-  showAlert(buttons?: AlertButton[], options?: AlertOptions): void {
-    Alert.alert(this.title, this.message, buttons ?? [{ text: 'OK' }], options);
+  showAlert(buttons?: AppAlertButton[], options?: AppAlertOptions): void {
+    AppAlert.alert(this.title, this.message, buttons ?? [{ text: 'OK' }], options);
   }
 }
 

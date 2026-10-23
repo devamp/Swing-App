@@ -6,7 +6,6 @@ import * as Linking from 'expo-linking';
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -20,7 +19,7 @@ import { ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CourtBackground from '../../components/CourtBackground';
 import { formatSkillLevel, getRelativeDateLabel } from '../../components/MatchCards';
-import { matchService } from '../../services';
+import { AppAlert, matchService } from '../../services';
 import { authService } from '../../services/authService';
 import {
   SwingBadRequestError,
@@ -84,7 +83,7 @@ export function MatchDetail({ route }: MatchDetailProps) {
       for (const key of ['upcomingMatch', 'dashboardDiscovery', 'loadInitialUser', 'profile']) {
         void queryClient.invalidateQueries({ queryKey: [key] });
       }
-      Alert.alert(
+      AppAlert.alert(
         "You're in!",
         "We'll let the host know, you just worry about bringing your A game",
       );
@@ -127,16 +126,16 @@ export function MatchDetail({ route }: MatchDetailProps) {
       return;
     }
 
-    Alert.alert(
+    AppAlert.alert(
       'Join match?',
       `Are you sure you want to join "${match.matchName}"? The host will be notified.`,
       [
-        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Join match',
           style: 'default',
           onPress: () => joinMatch({ userId, matchId: match.id }),
         },
+        { text: 'Cancel', style: 'cancel' },
       ],
     );
   };
@@ -145,16 +144,16 @@ export function MatchDetail({ route }: MatchDetailProps) {
     if (!match || !userId || isJoining || isLeaving || match.userId === userId) return;
     if (!(match.members ?? []).includes(userId)) return;
 
-    Alert.alert(
+    AppAlert.alert(
       'Leave match?',
       `Are you sure you want to leave "${match.matchName}"? Your spot will become available to other players.`,
       [
-        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Leave match',
           style: 'destructive',
           onPress: () => leaveMatch({ userId, matchId: match.id }),
         },
+        { text: 'Cancel', style: 'cancel' },
       ],
     );
   };
@@ -162,12 +161,12 @@ export function MatchDetail({ route }: MatchDetailProps) {
   const confirmDeleteMatch = () => {
     if (!match || isDeleting || match.userId !== authService.getCurrentUser()?.uid) return;
 
-    Alert.alert(
+    AppAlert.alert(
       'Delete match?',
       `Are you sure you want to delete "${match.matchName}"? This cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: () => deleteMatch(match.id) },
+        { text: 'Cancel', style: 'cancel' },
       ],
     );
   };

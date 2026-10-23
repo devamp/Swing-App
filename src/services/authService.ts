@@ -1,7 +1,9 @@
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -62,18 +64,17 @@ class AuthService {
     await updateProfile(Auth.currentUser, { displayName });
   }
 
-  async deleteAccount(): Promise<void> {
+  async deleteAccount(password: string): Promise<void> {
     const user = Auth.currentUser;
     if (!user) throw new SwingBadRequestError('Please sign in to delete your account.');
 
-    const lastSignInAt = user.metadata.lastSignInTime
-      ? new Date(user.metadata.lastSignInTime).getTime()
-      : 0;
-    if (!lastSignInAt || Date.now() - lastSignInAt > 4 * 60 * 1000) {
-      throw new SwingBadRequestError(
-        'For your security, log out and sign in again before deleting your account.',
-        { code: 'auth/requires-recent-login' },
-      );
+    if (!password) throw new SwingBadRequestError('Enter your current password to continue.');
+    if (!user.email) throw new SwingBadRequestError('Please sign in again to delete your account.');
+
+    // Firebase verifies the password; the current password is never readable from authUser.
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    if (Auth.currentUser?.uid !== user.uid) {
+      throw new SwingBadRequestError('Your session changed. Please sign in again to continue.');
     }
 
     // Delete private profile data while the user still has permission to do so.

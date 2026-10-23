@@ -1,7 +1,7 @@
 import type { StaticScreenProps } from '@react-navigation/core';
 import type React from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,10 +9,10 @@ import Theme from '../../../theme';
 import type {
   AvailabilityPreference,
   OnboardingLocationParams,
+  OnboardingMatchPreferencesParams,
   PlayStyle,
   SkillLevel,
 } from './OnboardingFlowTypes';
-import type { OnboardingMatchedPlayersParams } from './OnboardingFoundMatches';
 
 type OnboardingSkillAvailabilityProps = StaticScreenProps<OnboardingLocationParams>;
 
@@ -38,6 +38,7 @@ export function OnboardingSkillAvailability({ route }: OnboardingSkillAvailabili
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [availability, setAvailability] = useState<AvailabilityPreference[]>([]);
   const [playStyles, setPlayStyles] = useState<PlayStyle[]>([]);
+  const lastSearchKey = useRef<string | null>(null);
 
   const toggleAvailability = (option: AvailabilityPreference) => {
     setAvailability((current) =>
@@ -56,14 +57,21 @@ export function OnboardingSkillAvailability({ route }: OnboardingSkillAvailabili
       return;
     }
 
-    const params: OnboardingMatchedPlayersParams = {
+    const params: OnboardingMatchPreferencesParams = {
       ...route.params,
       skillLevel,
       availability,
       playStyles,
     };
+    const searchKey = JSON.stringify({
+      ...params,
+      availability: [...availability].sort(),
+      playStyles: [...playStyles].sort(),
+    });
+    const skipSearchDelay = searchKey === lastSearchKey.current;
+    lastSearchKey.current = searchKey;
 
-    navigation.navigate('OnboardingMatchedPlayers', params);
+    navigation.navigate('OnboardingMatchedPlayers', { ...params, skipSearchDelay });
   };
 
   const isReady = Boolean(skillLevel);

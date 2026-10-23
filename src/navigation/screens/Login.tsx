@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons/static';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { Button, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SwingError } from '../../services/errorService';
+import { AppAlert } from '../../services/alertService';
 import { authService } from '../../services/authService';
 import Theme from '../../theme';
 
@@ -55,7 +56,7 @@ export function Login() {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Forgot password',
       'Password reset is not available yet. Please check back soon.',
     );

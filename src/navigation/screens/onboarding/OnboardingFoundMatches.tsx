@@ -27,12 +27,15 @@ import { matchService } from '../../../services';
 import type { DBMatch } from '../../../services/matchService/types';
 import { withViewerDistance } from '../../../services/matchService/nearbyMatches';
 
-export type OnboardingMatchedPlayersParams = OnboardingMatchPreferencesParams;
+export type OnboardingMatchedPlayersParams = OnboardingMatchPreferencesParams & {
+  skipSearchDelay?: boolean;
+};
 
 type OnboardingMatchedPlayersProps = StaticScreenProps<OnboardingMatchedPlayersParams>;
 
 const MINIMUM_MAP_DELTA = 0.05;
 const MAP_PADDING_MULTIPLIER = 1.3;
+const MINIMUM_SEARCH_DURATION_MS = 3000;
 
 function getInitialMapRegion(
   matches: DBMatch[],
@@ -194,15 +197,19 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
   const { key: routeKey } = useRoute();
   const sport = route.params.selectedSport;
   const searchArea = route.params.searchCriteria;
+  const skipSearchDelay = route.params.skipSearchDelay ?? false;
   const navigation = useNavigation();
+  const [hasMinimumSearchTimeElapsed, setHasMinimumSearchTimeElapsed] =
+    useState(skipSearchDelay);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<Pick<Region, 'latitude' | 'longitude'> | null>(
     null,
   );
   const mapRef = useRef<MapView>(null);
-  const params = {
-    ...route.params,
-  };
+  const params = useMemo(() => {
+    const { skipSearchDelay: _skipSearchDelay, ...preferences } = route.params;
+    return preferences;
+  }, [route.params]);
 
   const {
     data: storedMatches,
@@ -212,13 +219,24 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
     isError,
     refetch,
   } = useQuery<DBMatch[]>({
-    queryKey: ['findNearbyMatches', routeKey, route.params],
+    queryKey: ['findNearbyMatches', routeKey, params],
     queryFn: () => matchService.findMatches({ filter: { sport } }),
     gcTime: 0,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+
+  useEffect(() => {
+    setHasMinimumSearchTimeElapsed(skipSearchDelay);
+    if (skipSearchDelay) return;
+
+    const timeout = setTimeout(
+      () => setHasMinimumSearchTimeElapsed(true),
+      MINIMUM_SEARCH_DURATION_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [skipSearchDelay]);
 
   useFocusEffect(
     useCallback(() => {
@@ -262,13 +280,14 @@ export function OnboardingMatchedPlayers({ route }: OnboardingMatchedPlayersProp
   );
 
   useEffect(() => {
-    if (isSuccess && !matches.length) {
-      navigation.dispatch(StackActions.replace('OnboardingMatchNotFound', route.params));
+    if (hasMinimumSearchTimeElapsed && isSuccess && !matches.length) {
+      navigation.dispatch(StackActions.replace('OnboardingMatchNotFound', params));
     }
-  }, [isSuccess, matches.length, navigation, route.params]);
+  }, [hasMinimumSearchTimeElapsed, isSuccess, matches.length, navigation, params]);
 
   // Keep the loader visible while an empty result transitions to the no-matches screen.
-  const showLoader = isPending || isFetching || (isSuccess && !matches.length);
+  const showLoader =
+    !hasMinimumSearchTimeElapsed || isPending || isFetching || (isSuccess && !matches.length);
 
   const mapCenter =
     searchArea.type === 'Current' && searchArea.latitude != null && searchArea.longitude != null

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -15,10 +14,12 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { ActivityIndicator, Button, Snackbar, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Button, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SelectableChip from '../../../components/SelectableChip';
+import DeleteAccountConfirmation from '../../../components/DeleteAccountConfirmation';
 import CourtBackground from '../../../components/CourtBackground';
+import { useToast } from '../../../components/ToastProvider';
 import { authService } from '../../../services/authService';
 import type {
   MatchActivity,
@@ -36,6 +37,7 @@ import { usesNativeTabs } from '../../nativeTabs';
 import { getPlayerInitials } from '../../../utils';
 import { OnboardingMatchPreferencesParams } from '../onboarding/OnboardingFlowTypes';
 import { SwingBadRequestError, SwingError, SwingNotFoundError } from '../../../services/errorService';
+import { AppAlert } from '../../../services/alertService';
 
 type UserDocument = {
   username?: string;
@@ -418,14 +420,15 @@ function EditProfileModal({
 }
 
 export function Profile() {
+  const { showToast } = useToast();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const authUser = authService.getCurrentUser();
   const userId = authUser?.uid;
   const profileQueryKey = useMemo(() => ['profile', userId] as const, [userId]);
   const [editVisible, setEditVisible] = useState(false);
+  const [deleteConfirmationVisible, setDeleteConfirmationVisible] = useState(false);
   const [completionDismissed, setCompletionDismissed] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const profileQuery = useQuery({
     queryKey: profileQueryKey,
@@ -483,7 +486,7 @@ export function Profile() {
     },
     onSuccess: async () => {
       setEditVisible(false);
-      setSuccessMessage('Profile saved.');
+      showToast('Profile saved', 'Your profile has been updated.');
       await profileQuery.refetch();
     },
     onError: (error) => SwingError.showAlert(error),
@@ -495,27 +498,21 @@ export function Profile() {
     onError: (error) => SwingError.showAlert(error),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: () => authService.deleteAccount(),
-    onSuccess: () => navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Landing' }] }),
-    onError: (error) => SwingError.showAlert(error),
-  });
-
   const confirmDelete = () => {
-    Alert.alert(
+    AppAlert.alert(
       'Delete account?',
       'This permanently removes your Swing profile and cannot be undone.',
       [
+        { text: 'Delete account', style: 'destructive', onPress: () => setDeleteConfirmationVisible(true) },
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete account', style: 'destructive', onPress: () => deleteMutation.mutate() },
       ],
     );
   };
 
   const confirmLogOut = () => {
-    Alert.alert('Log out?', 'Are you sure you want to log out now?', [
-      { text: 'Cancel', style: 'cancel' },
+    AppAlert.alert('Log out?', 'Are you sure you want to log out now?', [
       { text: 'Log out', style: 'destructive', onPress: () => logoutMutation.mutate() },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
@@ -700,7 +697,6 @@ export function Profile() {
             label="Delete Account"
             onPress={confirmDelete}
             destructive
-            loading={deleteMutation.isPending}
           />
         </SectionCard>
       </ScrollView>
@@ -714,13 +710,15 @@ export function Profile() {
           onSave={(form) => saveMutation.mutate(form)}
         />
       ) : null}
-      <Snackbar
-        visible={Boolean(successMessage)}
-        onDismiss={() => setSuccessMessage('')}
-        duration={2500}
-      >
-        {successMessage}
-      </Snackbar>
+      {deleteConfirmationVisible && (
+        <DeleteAccountConfirmation
+          onClose={() => setDeleteConfirmationVisible(false)}
+          onDeleted={() => {
+            setDeleteConfirmationVisible(false);
+            navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Landing' }] });
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

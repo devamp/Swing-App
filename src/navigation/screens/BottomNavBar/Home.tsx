@@ -9,7 +9,6 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -24,6 +23,7 @@ import { UpcomingMatchCard } from '../../../components/MatchCards';
 import NearbyMatchCard from '../../../components/NearbyMatchCard';
 import HomeHeader from '../../../components/HomeHeader';
 import { matchService } from '../../../services';
+import { AppAlert } from '../../../services/alertService';
 import { authService } from '../../../services/authService';
 import { userService } from '../../../services/userService';
 import Theme from '../../../theme';
@@ -237,7 +237,7 @@ export function Home() {
                     'My Matches',
                     'calendar-outline',
                     () =>
-                      Alert.alert(
+                      AppAlert.alert(
                         'My Matches',
                         'Your match list is not available yet. Your next hosted match appears above.',
                       ),

@@ -10,6 +10,17 @@ type MatchCardProps = {
   onPress: () => void;
 };
 
+// Only the displayed fields are required, so drafts can share the exact same card.
+type UpcomingMatchCardData = Pick<
+  FoundMatch,
+  'matchName' | 'playersNeeded' | 'skillLevel' | 'userId'
+> & {
+  sport: FoundMatch['sport'] | null;
+  gameType: string | null;
+  startsAt: { toDate: () => Date } | null;
+  matchCourtLocation: Pick<FoundMatch['matchCourtLocation'], 'name'>;
+};
+
 function capitalize(value: string) {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
@@ -35,18 +46,37 @@ export function getRelativeDateLabel(date: Date) {
   }).format(date);
 }
 
-export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
+export function UpcomingMatchCard({
+  match,
+  onPress,
+  dateTimeLabel,
+}: {
+  match: UpcomingMatchCardData;
+  onPress?: () => void;
+  dateTimeLabel?: string;
+}) {
   const { fontScale } = useWindowDimensions();
-  const startDate = match.startsAt.toDate();
-  const month = new Intl.DateTimeFormat('en-US', { month: 'short' })
-    .format(startDate)
-    .toUpperCase();
-  const day = new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(startDate);
-  const startTime = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(startDate);
-  const sportLabel = match.sport === 'tennis' ? 'Tennis' : 'Pickleball';
+  const startDate = match.startsAt?.toDate();
+  const month = startDate
+    ? new Intl.DateTimeFormat('en-US', { month: 'short' }).format(startDate).toUpperCase()
+    : 'DATE';
+  const day = startDate
+    ? new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(startDate)
+    : '–';
+  const startTime = startDate
+    ? new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(startDate)
+    : 'Choose time';
+  const dateTime =
+    dateTimeLabel ??
+    (startDate ? `${getRelativeDateLabel(startDate)} · ${startTime}` : 'Choose date & time');
+  const sportLabel = match.sport
+    ? match.sport === 'tennis'
+      ? 'Tennis'
+      : 'Pickleball'
+    : 'Choose a sport';
   const spots = Math.max(0, match.playersNeeded);
   const playersNeededLabel =
     spots > 0 ? `${spots} ${spots === 1 ? 'spot' : 'spots'} open` : 'Match full';
@@ -55,8 +85,9 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
 
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`View upcoming match ${match.matchName}, ${sportLabel}, ${getRelativeDateLabel(startDate)} at ${startTime}, ${formatSkillLevel(match.skillLevel)}, ${match.matchCourtLocation.name}, hosting, ${playersNeededLabel}`}
+      accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityLabel={`${onPress ? 'View upcoming match' : 'Match preview'} ${match.matchName}, ${sportLabel}, ${dateTime}, ${formatSkillLevel(match.skillLevel)}, ${match.matchCourtLocation.name}, ${hostId === userId ? 'hosting, ' : ''}${playersNeededLabel}`}
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.upcomingMatchCard, pressed && styles.pressed]}
     >
@@ -80,7 +111,7 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
             </View>
           ) : null}
         </View>
-        {fontScale < 1.3 ? <UpcomingMatchArtwork sport={match.sport} /> : null}
+        {fontScale < 1.3 && match.sport ? <UpcomingMatchArtwork sport={match.sport} /> : null}
       </View>
 
       <View style={styles.upcomingBody}>
@@ -90,7 +121,7 @@ export function UpcomingMatchCard({ match, onPress }: MatchCardProps) {
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="clock-outline" size={17} color={Theme.PRIMARY} />
           <Text style={styles.detailText}>
-            {getRelativeDateLabel(startDate)} · {startTime} · {formatSkillLevel(match.skillLevel)}
+            {dateTime} · {formatSkillLevel(match.skillLevel)}
           </Text>
         </View>
         <View style={styles.detailRow}>

@@ -12,6 +12,7 @@ const COLORS = {
   TEXT: 'black',
   SUB_TEXT_COLOR: '#4A4A4A',
   ALERT: '#F59E0B',
+  DANGER: '#B42318',
 } as const;
 
 const paperTheme = {

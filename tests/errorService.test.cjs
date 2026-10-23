@@ -5,7 +5,7 @@ const { test } = require('node:test');
 const { runInNewContext } = require('node:vm');
 const ts = require('typescript');
 
-// Exercise the actual service in Node while replacing only the native Alert bridge.
+// Exercise the actual service in Node while replacing only the shared alert entry point.
 const alerts = [];
 const exportsObject = {};
 const source = readFileSync(resolve(__dirname, '../src/services/errorService.ts'), 'utf8');
@@ -15,8 +15,8 @@ const compiled = ts.transpileModule(source, {
 runInNewContext(compiled, {
   exports: exportsObject,
   require: (name) => {
-    assert.equal(name, 'react-native');
-    return { Alert: { alert: (...args) => alerts.push(args) } };
+    assert.equal(name, './alertService');
+    return { AppAlert: { alert: (...args) => alerts.push(args) } };
   },
 });
 
@@ -131,7 +131,7 @@ test('network errors, timeouts, and unknown thrown values have safe fallbacks', 
   }
 });
 
-test('native alerts receive the parsed header/message and preserve action callbacks', () => {
+test('shared alerts receive the parsed header/message and preserve action callbacks', () => {
   alerts.length = 0;
   errorService.showAlert({ code: 'auth/invalid-email' });
   assert.equal(alerts.length, 1);

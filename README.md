@@ -72,9 +72,42 @@ Use `SwingBadRequestError`, `SwingNotFoundError`, or `SwingInternalServerError` 
 throw new SwingBadRequestError('Choose a match start time in the future.');
 ```
 
-In a screen's catch or mutation error handler, call `SwingError.showAlert(error)` to parse the error and show its header and message using React Native's native `Alert`. `SwingError.parse(error)` returns the typed error without showing anything, so it can be used in services or inline error states. Constructors do not show alerts, which keeps query retries from opening duplicate popups.
+In a screen's catch or mutation error handler, call `SwingError.showAlert(error)` to parse the error and show its header and message using the shared Swing alert dialog. `SwingError.parse(error)` returns the typed error without showing anything, so it can be used in services or inline error states. Constructors do not show alerts, which keeps query retries from opening duplicate popups.
 
-The parser handles Firebase codes, network failures, timeouts, HTTP statuses, and unknown thrown values. Unexpected errors use friendly fallback copy; the original error is kept as `cause`. Informational and confirmation dialogs use `Alert.alert` directly. Run `npm test` to check parsing and native alert calls with the native bridge mocked.
+The parser handles Firebase codes, network failures, timeouts, HTTP statuses, and unknown thrown values. Unexpected errors use friendly fallback copy; the original error is kept as `cause`. Run `npm test` to check parsing, alert delivery, and action/dismissal behavior.
+
+## Alert dialogs
+
+Use `AppAlert` from `src/services/alertService.ts` for informational and confirmation dialogs. `AppAlertHost` is mounted once in `App.tsx`. Alerts queue in order, and callbacks run after dismissal so navigation and follow-up dialogs work safely.
+
+```ts
+AppAlert.alert('Delete match?', 'This cannot be undone.', [
+  { text: 'Delete match', style: 'destructive', onPress: deleteMatch },
+  { text: 'Cancel', style: 'cancel' },
+]);
+
+AppAlert.alert('Ready to play?', 'Let the host know you’re joining.', [
+  { text: 'Join match', color: '#163D38', backgroundColor: '#EBF1EF', onPress: joinMatch },
+  { text: 'Not now', style: 'cancel' },
+]);
+```
+
+Supply one or two actions in display order; omitting them adds an **OK** action. Presets are `default` (forest green, semibold), `cancel` (neutral, regular), and `destructive` (red, semibold). Each action can override `color` and `backgroundColor`. Keep custom text/fill pairs readable. The dialog uses a bold title, regular body text, vertically stacked actions, and a dimmed backdrop. Text follows the system font size and scrolls on smaller screens.
+
+Backdrop dismissal is off by default. To enable it, pass `{ cancelable: true, onDismiss }` as the fourth argument. Android back and accessibility Escape choose the cancel action when present; otherwise they dismiss only when `cancelable` is enabled. Passive dismissal never runs a destructive action. `SwingError.showAlert(error, buttons, options)` accepts the same action styles and colors.
+
+## Toast notifications
+
+The shared `ToastProvider` in `App.tsx` displays the same top toast across screens, including after match creation and profile edits. Use the `useToast` hook from any component under the provider:
+
+```tsx
+import { useToast } from './components/ToastProvider';
+
+const { showToast } = useToast();
+showToast('Profile saved', 'Your profile has been updated.');
+```
+
+The title is required and the message is optional. Toasts sit below the safe area, animate in and out, dismiss automatically after 4.5 seconds, and include a close button. They remain visible across navigation, support screen reader announcements, and respect Reduce Motion. A new notification replaces the current toast and restarts its timer.
 
 ## Notes
 
